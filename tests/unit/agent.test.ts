@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames } from "../../src/agent.js";
+import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames, addCost } from "../../src/agent.js";
 import { loadConfig } from "../../src/config.js";
+import { createState } from "../../src/state.js";
 
 describe("isInside", () => {
   it("accepts children and rejects escapes", () => {
@@ -56,5 +57,17 @@ describe("pluginSkillNames", () => {
       "faktory-skills:wp-block-development",
       "faktory-skills:wp-wpcli-and-ops",
     ]);
+  });
+});
+
+describe("addCost", () => {
+  it("adds and rounds to 4 decimals", () => {
+    const state = createState("d", 8100, "pw");
+    expect(addCost(state, 0.12345).costUsd).toBe(0.1235);
+  });
+  it("avoids float drift across repeated additions", () => {
+    const state = createState("d", 8100, "pw");
+    const next = addCost(addCost(state, 0.1), 0.2);
+    expect(next.costUsd).toBe(0.3);
   });
 });

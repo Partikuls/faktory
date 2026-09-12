@@ -2,7 +2,7 @@ import { join, resolve, sep } from "node:path";
 import { query, type HookCallback, type PreToolUseHookInput } from "@anthropic-ai/claude-agent-sdk";
 import type { FaktoryConfig } from "./config.js";
 import type { SiteContext } from "./docker.js";
-import { writeState } from "./state.js";
+import { writeState, type SiteState } from "./state.js";
 import { createFaktoryServer, FAKTORY_SERVER } from "./tools/server.js";
 
 export function isInside(base: string, target: string): boolean {
@@ -47,6 +47,10 @@ export function pluginSkillNames(): string[] {
   return FAKTORY_SKILLS.map((name) => `faktory-skills:${name}`);
 }
 
+export function addCost(state: SiteState, usd: number): SiteState {
+  return { ...state, costUsd: Math.round((state.costUsd + usd) * 10000) / 10000 };
+}
+
 export type AgentRun = { text: string; structured?: unknown; costUsd: number; sessionId?: string; numTurns: number };
 
 export async function runAgent(
@@ -81,6 +85,8 @@ export async function runAgent(
       }
     }
     if (message.type === "result") {
+      ctx.state = addCost(ctx.state, message.total_cost_usd);
+      writeState(ctx.siteDir, ctx.state);
       if (message.subtype !== "success") throw new Error(`Agent stage "${opts.stage}" ended with ${message.subtype}`);
       out = {
         text: message.result,
@@ -92,7 +98,5 @@ export async function runAgent(
     }
   }
   if (!out) throw new Error(`Agent stage "${opts.stage}" produced no result`);
-  ctx.state = { ...ctx.state, costUsd: Math.round((ctx.state.costUsd + out.costUsd) * 10000) / 10000 };
-  writeState(ctx.siteDir, ctx.state);
   return out;
 }
