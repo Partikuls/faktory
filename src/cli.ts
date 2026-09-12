@@ -8,7 +8,7 @@ import { initSite, listSites } from "./workspace.js";
 import { runSite, approveSite, destroySite, loadContext } from "./pipeline.js";
 import { STAGES, type StageName } from "./state.js";
 import { run } from "./exec.js";
-import { runAgent, pluginPath } from "./agent.js";
+import { runAgent, pluginPath, pluginSkillNames } from "./agent.js";
 import { findVendorZip, VENDOR_PLUGINS } from "./provision/stack.js";
 import { TOOL_WP } from "./tools/server.js";
 
@@ -81,9 +81,15 @@ program.command("doctor").description("Check local toolchain and skill loading")
         model: "claude-sonnet-5",
       });
       console.log("\n--- agent ---\n" + r.text + `\n--- cost $${r.costUsd.toFixed(4)}, ${r.numTurns} turns ---`);
-      const leaked = r.text.includes("wordpress-content-writer");
-      const ok = r.text.includes("generatepress-generateblocks") && /WP-CLI \d/.test(r.text) && !leaked;
-      if (leaked) console.log("✖ global skills leaked into the agent context");
+      const missing = pluginSkillNames().filter((n) => !r.text.includes(n));
+      const hasWpCli = /WP-CLI \d/.test(r.text);
+      const leakedUser = r.text.includes("wordpress-content-writer");
+      const leakedBundled = r.text.includes("keybindings-help");
+      let ok = true;
+      if (missing.length) { console.log(`✖ missing plugin skill(s): ${missing.join(", ")}`); ok = false; }
+      if (!hasWpCli) { console.log("✖ no WP-CLI version line in agent output"); ok = false; }
+      if (leakedUser) { console.log("✖ global (user) skills leaked into the agent context"); ok = false; }
+      if (leakedBundled) { console.log("✖ Claude Code bundled skills leaked into the agent context"); ok = false; }
       console.log(ok ? "✔ skills loaded and wp tool reachable" : "✖ skills or wp tool not visible to the agent — check plugin/ layout and docker state");
       if (!ok) process.exit(1);
     }

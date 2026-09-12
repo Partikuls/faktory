@@ -41,6 +41,12 @@ export function effectiveAllowedTools(tools: string[]): string[] {
   return Array.from(new Set([...tools, "Skill"]));
 }
 
+export const FAKTORY_SKILLS = ["generatepress-generateblocks", "wp-plugin-development", "wp-block-development", "wp-wpcli-and-ops"] as const;
+
+export function pluginSkillNames(): string[] {
+  return FAKTORY_SKILLS.map((name) => `faktory-skills:${name}`);
+}
+
 export type AgentRun = { text: string; structured?: unknown; costUsd: number; sessionId?: string; numTurns: number };
 
 export async function runAgent(
@@ -61,7 +67,7 @@ export async function runAgent(
       systemPrompt: opts.systemPrompt,
       allowedTools: effectiveAllowedTools(opts.allowedTools),
       settingSources: [],
-      skills: "all",
+      skills: pluginSkillNames(),
       plugins: [{ type: "local", path: pluginPath(ctx.config) }],
       mcpServers: { [FAKTORY_SERVER]: server },
       hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir)] }] },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools } from "../../src/agent.js";
+import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames } from "../../src/agent.js";
 import { loadConfig } from "../../src/config.js";
 
 describe("isInside", () => {
@@ -45,5 +45,16 @@ describe("effectiveAllowedTools", () => {
   it("appends Skill, deduplicated", () => {
     expect(effectiveAllowedTools(["mcp__faktory__wp"])).toEqual(["mcp__faktory__wp", "Skill"]);
     expect(effectiveAllowedTools(["mcp__faktory__wp", "Skill"])).toEqual(["mcp__faktory__wp", "Skill"]);
+  });
+});
+
+describe("pluginSkillNames", () => {
+  it("returns the four faktory-skills-qualified names in order", () => {
+    expect(pluginSkillNames()).toEqual([
+      "faktory-skills:generatepress-generateblocks",
+      "faktory-skills:wp-plugin-development",
+      "faktory-skills:wp-block-development",
+      "faktory-skills:wp-wpcli-and-ops",
+    ]);
   });
 });
