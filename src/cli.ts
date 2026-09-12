@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import * as readline from "node:readline/promises";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { loadConfig } from "./config.js";
-import { initSite } from "./workspace.js";
-import { runSite, approveSite, destroySite } from "./pipeline.js";
+import { initSite, listSites } from "./workspace.js";
+import { runSite, approveSite, destroySite, loadContext } from "./pipeline.js";
 import { STAGES, type StageName } from "./state.js";
+import { run } from "./exec.js";
+import { runAgent, pluginPath } from "./agent.js";
+import { findVendorZip, VENDOR_PLUGINS } from "./provision/stack.js";
+import { TOOL_WP } from "./tools/server.js";
 
 function asStage(v: string | undefined): StageName | undefined {
   if (v === undefined) return undefined;
@@ -45,7 +51,41 @@ program.command("destroy <slug>").description("Stop containers, drop volumes, de
     console.log(`Site "${slug}" destroyed.`);
   });
 program.command("doctor").description("Check local toolchain and skill loading")
-  .action(async () => { throw new Error("not implemented"); });
+  .option("--agent", "Also run a tiny Agent SDK query to verify skill/plugin loading (costs a few cents)")
+  .action(async (opts: { agent?: boolean }) => {
+    const config = loadConfig();
+    const checks: [string, boolean, string][] = [];
+    const ver = async (cmd: string, args: string[]) => (await run(cmd, args)).code === 0;
+    checks.push(["docker", await ver("docker", ["--version"]), "install Docker Desktop"]);
+    checks.push(["docker compose", await ver("docker", ["compose", "version"]), "Compose v2+ required"]);
+    checks.push(["python3", await ver("python3", ["--version"]), "needed by gb_build.py"]);
+    checks.push(["rsync", await ver("rsync", ["--version"]), "needed by sync-skills"]);
+    checks.push(["skills synced", existsSync(join(pluginPath(config), "skills", "generatepress-generateblocks", "SKILL.md")), "run npm run sync-skills"]);
+    for (const v of VENDOR_PLUGINS) checks.push([`vendor ${v.slug}`, !!findVendorZip(config.vendorDir, v.prefix), `drop ${v.prefix}*.zip in docker/vendor/ (optional)`]);
+    for (const [name, ok, hint] of checks) console.log(`${ok ? "✔" : "✖"} ${name}${ok ? "" : ` — ${hint}`}`);
+    if (process.env.ANTHROPIC_API_KEY) {
+      console.log("✔ ANTHROPIC_API_KEY set");
+    } else {
+      console.log("ℹ ANTHROPIC_API_KEY unset — the SDK will use the Claude Code login; run doctor --agent to prove it");
+    }
+
+    if (opts.agent) {
+      const sites = listSites(config);
+      if (!sites.length) throw new Error("Create a site first (faktory init) so doctor has a workspace to run in");
+      const ctx = loadContext(config, sites[0]);
+      const r = await runAgent(ctx, {
+        stage: "doctor",
+        prompt: "List the names of every skill available to you, one per line, then call the wp tool with args [\"cli\",\"version\"] and print its output verbatim. Nothing else.",
+        allowedTools: [TOOL_WP, "Skill"],
+        maxTurns: 4,
+        model: "claude-sonnet-5",
+      });
+      console.log("\n--- agent ---\n" + r.text + `\n--- cost $${r.costUsd.toFixed(4)}, ${r.numTurns} turns ---`);
+      const ok = r.text.includes("generatepress-generateblocks") && /WP-CLI \d/.test(r.text);
+      console.log(ok ? "✔ skills loaded and wp tool reachable" : "✖ skills or wp tool not visible to the agent — check plugin/ layout and docker state");
+      if (!ok) process.exit(1);
+    }
+  });
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error(err instanceof Error ? err.message : String(err));
