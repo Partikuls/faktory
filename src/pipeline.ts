@@ -5,6 +5,7 @@ import { STAGES, readState, writeState, setStage, firstIncompleteStage, awaiting
 import { siteDir } from "./workspace.js";
 import { provisionStage } from "./stages/provision.js";
 import { specStage } from "./stages/spec.js";
+import { designStage } from "./stages/design.js";
 
 export interface Stage {
   name: StageName;
@@ -14,7 +15,7 @@ export interface Stage {
   onApprove?(ctx: SiteContext): Promise<string | void>;
 }
 
-export const registry: Partial<Record<StageName, Stage>> = { spec: specStage, provision: provisionStage };
+export const registry: Partial<Record<StageName, Stage>> = { spec: specStage, design: designStage, provision: provisionStage };
 
 export const deps = { composeDown };
 
