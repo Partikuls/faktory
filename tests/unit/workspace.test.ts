@@ -43,11 +43,11 @@ describe("workspace", () => {
     await expect(initSite(freshConfig(), { slug: "Bad Slug", briefPath: BRIEF })).rejects.toThrow(/slug/i);
   });
   it("allocatePort skips a port that is in use", async () => {
-    const config = freshConfig();
+    const config = { ...freshConfig(), portBase: 48100 };
     const server = createServer();
     await new Promise<void>((resolve) => server.listen(config.portBase, "127.0.0.1", resolve));
     try {
-      expect(await allocatePort(config)).toBe(config.portBase + 1);
+      expect(await allocatePort(config)).toBe(48101);
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
