@@ -27,6 +27,29 @@ describe("wp tool", () => {
     expect(r.isError).toBe(true);
     expect(spy).not.toHaveBeenCalled();
   });
+  it("refuses destructive commands preceded by global flags, without calling wp", async () => {
+    const spy = vi.spyOn(deps, "composeExec");
+    const r = await wpToolHandler(ctx)({ args: ["--quiet", "db", "reset", "--yes"] });
+    expect(r.isError).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it("refuses eval, without calling wp", async () => {
+    const spy = vi.spyOn(deps, "composeExec");
+    const r = await wpToolHandler(ctx)({ args: ["eval", "echo 1;"] });
+    expect(r.isError).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it("allows db export", async () => {
+    vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "-- dump --", stderr: "", code: 0 });
+    const r = await wpToolHandler(ctx)({ args: ["db", "export"] });
+    expect(r.isError).toBeFalsy();
+  });
+  it("allows commands with a leading global flag and passes args through unchanged", async () => {
+    const spy = vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "ok", stderr: "", code: 0 });
+    const r = await wpToolHandler(ctx)({ args: ["--url=http://x", "post", "list"] });
+    expect(r.isError).toBeFalsy();
+    expect(spy).toHaveBeenCalledWith(ctx, "wpcli", ["wp", "--url=http://x", "post", "list"], { input: undefined });
+  });
   it("truncates long output", async () => {
     vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "x".repeat(30000), stderr: "", code: 0 });
     const r = await wpToolHandler(ctx)({ args: ["post", "list"] });
