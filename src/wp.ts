@@ -13,8 +13,8 @@ function redact(args: string[]): string {
   return args.map((a) => (SECRET_ARG_RE.test(a) ? `${a.slice(0, a.indexOf("=") + 1)}***` : a)).join(" ");
 }
 
-export async function wpOk(ctx: SiteContext, args: string[]): Promise<string> {
-  const r = await runWp(ctx, args);
+export async function wpOk(ctx: SiteContext, args: string[], opts: { input?: string } = {}): Promise<string> {
+  const r = await runWp(ctx, args, opts);
   if (r.code !== 0) throw new Error(`wp ${redact(args)} failed: ${(r.stderr || r.stdout).trim()}`);
   return r.stdout.trim();
 }

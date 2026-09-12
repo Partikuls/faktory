@@ -9,6 +9,8 @@ export interface Stage {
   name: StageName;
   checkpoint?: boolean;
   run(ctx: SiteContext): Promise<string | void>;
+  /** Runs at `faktory approve` for checkpoint stages (e.g. re-sync JSON from an edited markdown). Throwing keeps the stage awaiting approval. */
+  onApprove?(ctx: SiteContext): Promise<string | void>;
 }
 
 export const registry: Partial<Record<StageName, Stage>> = { provision: provisionStage };
@@ -42,6 +44,9 @@ export async function runSite(
   for (const name of plan) {
     const stage = stages[name];
     if (!stage) { persist(ctx, setStage(ctx.state, name, "done", "skipped (not implemented)")); continue; }
+    if (ctx.state.costUsd >= config.maxCostUsd) {
+      throw new Error(`Cost budget reached ($${ctx.state.costUsd.toFixed(2)} >= $${config.maxCostUsd}); raise maxCostUsd in faktory.config.json or pass --max-cost to continue`);
+    }
     persist(ctx, setStage(ctx.state, name, "running"));
     console.log(`▶ ${name}`);
     try {
@@ -59,11 +64,13 @@ export async function runSite(
   return ctx.state;
 }
 
-export function approveSite(config: FaktoryConfig, slug: string): SiteState {
+export async function approveSite(config: FaktoryConfig, slug: string, opts: { stages?: Partial<Record<StageName, Stage>> } = {}): Promise<SiteState> {
   const ctx = loadContext(config, slug);
   const waiting = awaitingStage(ctx.state);
   if (!waiting) throw new Error(`Nothing awaits approval for "${slug}"`);
-  return persist(ctx, setStage(ctx.state, waiting, "done", "approved"));
+  const stage = (opts.stages ?? registry)[waiting];
+  const msg = stage?.onApprove ? await stage.onApprove(ctx) : undefined;
+  return persist(ctx, setStage(ctx.state, waiting, "done", msg ?? "approved"));
 }
 
 export async function destroySite(config: FaktoryConfig, slug: string, opts: { force?: boolean } = {}): Promise<void> {

@@ -1,5 +1,6 @@
 {
   "portBase": 8100,
   "adminEmail": "khelil@partikuls.com",
-  "models": { "default": "claude-opus-5" }
+  "maxCostUsd": 40,
+  "models": { "default": "claude-opus-5", "resync": "claude-sonnet-5" }
 }

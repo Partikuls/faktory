@@ -21,4 +21,12 @@ describe("loadConfig", () => {
     expect(c.portBase).toBe(9000);
     expect(c.models.spec).toBe("claude-sonnet-5");
   });
+  it("defaults maxCostUsd to 40 and accepts an override", () => {
+    expect(loadConfig("/tmp/nonexistent-fk").maxCostUsd).toBe(40);
+    const dir = mkdtempSync(join(tmpdir(), "fk-cfg-"));
+    writeFileSync(join(dir, "faktory.config.json"), JSON.stringify({ maxCostUsd: 12.5, models: { default: "claude-opus-5", resync: "claude-sonnet-5" } }));
+    const c = loadConfig(dir);
+    expect(c.maxCostUsd).toBe(12.5);
+    expect(c.models.resync).toBe("claude-sonnet-5");
+  });
 });

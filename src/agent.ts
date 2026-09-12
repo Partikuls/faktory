@@ -51,6 +51,10 @@ export function addCost(state: SiteState, usd: number): SiteState {
   return { ...state, costUsd: Math.round((state.costUsd + usd) * 10000) / 10000 };
 }
 
+export function remainingBudget(ctx: SiteContext): number {
+  return Math.max(0.05, Math.round((ctx.config.maxCostUsd - ctx.state.costUsd) * 100) / 100);
+}
+
 export type AgentRun = { text: string; structured?: unknown; costUsd: number; sessionId?: string; numTurns: number };
 
 export async function runAgent(
@@ -76,6 +80,7 @@ export async function runAgent(
       mcpServers: { [FAKTORY_SERVER]: server },
       hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir)] }] },
       maxTurns: opts.maxTurns ?? 60,
+      maxBudgetUsd: remainingBudget(ctx),
       outputFormat: opts.outputFormat,
     },
   })) {

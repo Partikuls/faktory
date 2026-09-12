@@ -46,4 +46,9 @@ describe("wp runner", () => {
     vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "", stderr: "down", code: 1 });
     await expect(waitForDb(ctx, { attempts: 2, delayMs: 1 })).rejects.toThrow(/database not reachable/i);
   });
+  it("wpOk forwards stdin", async () => {
+    const spy = vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "Success\n", stderr: "", code: 0 });
+    await wpOk(ctx, ["option", "update", "generate_settings", "--format=json"], { input: "{\"a\":1}" });
+    expect(spy).toHaveBeenCalledWith(ctx, "wpcli", ["wp", "option", "update", "generate_settings", "--format=json"], { input: "{\"a\":1}" });
+  });
 });

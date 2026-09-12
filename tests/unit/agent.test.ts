@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames, addCost } from "../../src/agent.js";
+import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames, addCost, remainingBudget } from "../../src/agent.js";
 import { loadConfig } from "../../src/config.js";
 import { createState } from "../../src/state.js";
 
@@ -69,5 +69,13 @@ describe("addCost", () => {
     const state = createState("d", 8100, "pw");
     const next = addCost(addCost(state, 0.1), 0.2);
     expect(next.costUsd).toBe(0.3);
+  });
+});
+
+describe("remainingBudget", () => {
+  const base = { config: loadConfig("/tmp/fk"), slug: "d", siteDir: "/tmp/fk/sites/d", state: createState("d", 8100, "pw") };
+  it("is maxCostUsd minus spent, floored at 0.05", () => {
+    expect(remainingBudget({ ...base, state: { ...base.state, costUsd: 10 } })).toBe(30);
+    expect(remainingBudget({ ...base, state: { ...base.state, costUsd: 45 } })).toBe(0.05);
   });
 });

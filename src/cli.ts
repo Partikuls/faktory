@@ -29,15 +29,24 @@ program.command("init <slug>").description("Create a site workspace from a brief
     console.log(`Site "${slug}" created at ${dir} (port ${state.port}).`);
     console.log(`Next: faktory run ${slug}`);
   });
+function withMaxCost(maxCost?: string) {
+  const config = loadConfig();
+  if (maxCost === undefined) return config;
+  const n = Number(maxCost);
+  if (!Number.isFinite(n) || n <= 0) throw new Error(`--max-cost must be a positive number of USD, got "${maxCost}"`);
+  return { ...config, maxCostUsd: n };
+}
+
 program.command("run <slug>").description("Run the pipeline from the first incomplete stage")
   .option("--from <stage>").option("--only <stage>")
-  .action(async (slug: string, opts: { from?: string; only?: string }) => {
-    await runSite(loadConfig(), slug, { from: asStage(opts.from), only: asStage(opts.only) });
+  .option("--max-cost <usd>", "Stop before any stage once the cumulated cost reaches this amount (default: faktory.config.json maxCostUsd)")
+  .action(async (slug: string, opts: { from?: string; only?: string; maxCost?: string }) => {
+    await runSite(withMaxCost(opts.maxCost), slug, { from: asStage(opts.from), only: asStage(opts.only) });
   });
 program.command("provision <slug>").description("Alias for run --only provision")
   .action(async (slug: string) => { await runSite(loadConfig(), slug, { only: "provision" }); });
-program.command("approve <slug>").description("Mark the awaiting checkpoint as approved")
-  .action(async (slug: string) => { const s = approveSite(loadConfig(), slug); console.log(`Approved. Next: faktory run ${s.slug}`); });
+program.command("approve <slug>").description("Mark the awaiting checkpoint as approved (re-syncs JSON from an edited markdown when needed)")
+  .action(async (slug: string) => { const s = await approveSite(loadConfig(), slug); console.log(`Approved. Next: faktory run ${s.slug}`); });
 program.command("destroy <slug>").description("Stop containers, drop volumes, delete workspace")
   .option("--yes", "Skip confirmation")
   .option("--force", "Delete the workspace even if docker compose down fails")

@@ -7,6 +7,7 @@ const ConfigFile = z.object({
   vendorDir: z.string().default("docker/vendor"),
   portBase: z.number().int().min(1024).default(8100),
   adminEmail: z.string().email().default("khelil@partikuls.com"),
+  maxCostUsd: z.number().positive().default(40),
   models: z.object({ default: z.string().default("claude-opus-5") }).catchall(z.string()).default({ default: "claude-opus-5" }),
 });
 
@@ -16,6 +17,7 @@ export type FaktoryConfig = {
   vendorDir: string;
   portBase: number;
   adminEmail: string;
+  maxCostUsd: number;
   models: { default: string } & Record<string, string>;
 };
 
@@ -29,6 +31,7 @@ export function loadConfig(repoRoot: string = process.cwd()): FaktoryConfig {
     vendorDir: resolve(repoRoot, parsed.vendorDir),
     portBase: parsed.portBase,
     adminEmail: parsed.adminEmail,
+    maxCostUsd: parsed.maxCostUsd,
     models: parsed.models as FaktoryConfig["models"],
   };
 }
