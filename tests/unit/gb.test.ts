@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadConfig } from "../../src/config.js";
-import { gbScript, gbBuild, gbPreview, previewOptionsFromTokens, countBlocks, deps } from "../../src/gb.js";
+import { gbScript, gbBuild, gbPreview, previewOptionsFromTokens, countBlocks, googleFontsHref, deps } from "../../src/gb.js";
 import { parseDesignTokens } from "../../src/schemas/design-tokens.js";
 
 const config = loadConfig(process.cwd());
@@ -22,6 +22,9 @@ describe("gbScript / previewOptionsFromTokens / countBlocks (pure)", () => {
   });
   it("counts GenerateBlocks opening delimiters", () => {
     expect(countBlocks("<!-- wp:generateblocks/element {} -->\n<div></div>\n<!-- /wp:generateblocks/element -->\n<!-- wp:generateblocks/text {} -->x<!-- /wp:generateblocks/text -->")).toBe(2);
+  });
+  it("formats Google Fonts URL with italic variants in ital,wght axis syntax", () => {
+    expect(googleFontsHref([{ family: "Fraunces", variants: "400,400italic,700" }, { family: "Source Sans 3", variants: "400,600" }])).toBe("https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,700;1,400&family=Source+Sans+3:wght@400;600&display=swap");
   });
   it("surfaces python failures with stderr", async () => {
     vi.spyOn(deps, "run").mockResolvedValue({ stdout: "", stderr: "Traceback: boom", code: 1 });
