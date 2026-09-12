@@ -24,6 +24,17 @@ describe("wp runner", () => {
     vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "", stderr: "Error: nope", code: 1 });
     await expect(wpOk(ctx, ["plugin", "activate", "x"])).rejects.toThrow(/plugin activate x failed: Error: nope/);
   });
+  it("wpOk redacts secrets from the thrown error message", async () => {
+    vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "", stderr: "Error: nope", code: 1 });
+    let message = "";
+    try {
+      await wpOk(ctx, ["core", "install", "--admin_password=s3cret"]);
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    expect(message).toContain("--admin_password=***");
+    expect(message).not.toContain("s3cret");
+  });
   it("waitForDb retries until db check succeeds", async () => {
     const spy = vi.spyOn(deps, "composeExec")
       .mockResolvedValueOnce({ stdout: "", stderr: "down", code: 1 })

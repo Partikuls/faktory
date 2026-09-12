@@ -7,9 +7,15 @@ export function runWp(ctx: SiteContext, args: string[], opts: { input?: string }
   return deps.composeExec(ctx, "wpcli", ["wp", ...args], { input: opts.input });
 }
 
+const SECRET_ARG_RE = /^--(admin_password|.*_key|.*password)=/;
+
+function redact(args: string[]): string {
+  return args.map((a) => (SECRET_ARG_RE.test(a) ? `${a.slice(0, a.indexOf("=") + 1)}***` : a)).join(" ");
+}
+
 export async function wpOk(ctx: SiteContext, args: string[]): Promise<string> {
   const r = await runWp(ctx, args);
-  if (r.code !== 0) throw new Error(`wp ${args.join(" ")} failed: ${(r.stderr || r.stdout).trim()}`);
+  if (r.code !== 0) throw new Error(`wp ${redact(args)} failed: ${(r.stderr || r.stdout).trim()}`);
   return r.stdout.trim();
 }
 

@@ -6,7 +6,7 @@ WordPress AI software factory: `brief.md` in, GeneratePress/GenerateBlocks site 
 ```bash
 npm install
 npm run sync-skills                 # copies GP/GB + WP skills from ~/.claude/skills into plugin/skills
-cp docker/.env.example docker/.env  # optional license keys
+cp docker/.env.example docker/.env  # optional license keys (not used yet — phase 2)
 # drop gp-premium*.zip, generateblocks-pro*.zip, gravityforms*.zip, gravityformscli*.zip into docker/vendor/
 npm run faktory -- doctor           # add --agent to verify skill loading with a real query
 # no ANTHROPIC_API_KEY needed: the SDK reuses your Claude Code login (doctor --agent proves it, ~$0.10-0.20)

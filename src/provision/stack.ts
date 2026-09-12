@@ -13,7 +13,7 @@ export const VENDOR_PLUGINS = [
 export function findVendorZip(vendorDir: string, prefix: string): string | undefined {
   if (!existsSync(vendorDir)) return undefined;
   const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([-_.].*)?\\.zip$`);
-  return readdirSync(vendorDir).sort().find((f) => re.test(f));
+  return readdirSync(vendorDir).sort().reverse().find((f) => re.test(f));
 }
 
 type Item = { name: string; status: string };
