@@ -13,11 +13,12 @@ function ctxWithVendor(files: string[]): SiteContext {
   for (const f of files) writeFileSync(join(vendorDir, f), "");
   return { config: { ...loadConfig("/tmp/fk"), vendorDir }, slug: "demo", siteDir: "/tmp/fk/sites/demo", state: createState("demo", 8100, "pw") };
 }
-function mockWp(activeThemes: string[] = [], activePlugins: string[] = []) {
+function mockWp(activeThemes: string[] = [], plugins: (string | { name: string; status: string })[] = []) {
+  const normalizePlugins = (p: typeof plugins) => p.map((x) => (typeof x === "string" ? { name: x, status: "active" } : x));
   return vi.spyOn(deps, "composeExec").mockImplementation(async (_c, _s, cmd) => {
     const a = cmd.slice(1).join(" ");
     if (a.startsWith("theme list")) return { stdout: JSON.stringify(activeThemes.map((name) => ({ name, status: "active" }))), stderr: "", code: 0 };
-    if (a.startsWith("plugin list")) return { stdout: JSON.stringify(activePlugins.map((name) => ({ name, status: "active" }))), stderr: "", code: 0 };
+    if (a.startsWith("plugin list")) return { stdout: JSON.stringify(normalizePlugins(plugins)), stderr: "", code: 0 };
     return { stdout: "", stderr: "", code: 0 };
   });
 }
@@ -56,5 +57,20 @@ describe("installStack", () => {
     expect(c.some((x) => x.startsWith("theme install"))).toBe(false);
     expect(c.some((x) => x.startsWith("plugin install generateblocks"))).toBe(false);
     expect(c.some((x) => x.startsWith("scaffold child-theme"))).toBe(false);
+  });
+
+  it("activates installed-but-inactive plugins", async () => {
+    const ctx = ctxWithVendor([]);
+    const spy = mockWp(["generatepress", "faktory-demo"], [
+      { name: "generateblocks", status: "inactive" },
+      { name: "wordpress-seo", status: "active" },
+      { name: "gp-premium", status: "inactive" },
+    ]);
+    const r = await installStack(ctx);
+    const c = calls(spy);
+    expect(c).toContain("plugin activate generateblocks");
+    expect(c).toContain("plugin activate gp-premium");
+    expect(c.some((x) => x.startsWith("plugin install"))).toBe(false);
+    expect(r.missingVendor).toEqual(["generateblocks-pro", "gravityforms", "gravityformscli"]);
   });
 });

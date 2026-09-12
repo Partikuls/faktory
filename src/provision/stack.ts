@@ -28,12 +28,17 @@ export async function installStack(ctx: SiteContext): Promise<{ installed: strin
   if (!hasTheme("generatepress")) { await wpOk(ctx, ["theme", "install", "generatepress", "--activate"]); installed.push("generatepress"); }
 
   const plugins = await wpJson<Item[]>(ctx, ["plugin", "list", "--fields=name,status"]);
-  const active = new Set(plugins.filter((p) => p.status === "active").map((p) => p.name));
-  const wporgMissing = WPORG_PLUGINS.filter((p) => !active.has(p));
-  if (wporgMissing.length) { await wpOk(ctx, ["plugin", "install", ...wporgMissing, "--activate"]); installed.push(...wporgMissing); }
+  const installedSet = new Set(plugins.map((p) => p.name));
+  const activeSet = new Set(plugins.filter((p) => p.status === "active").map((p) => p.name));
+
+  const wporgToInstall = WPORG_PLUGINS.filter((p) => !installedSet.has(p));
+  const wporgToActivate = WPORG_PLUGINS.filter((p) => installedSet.has(p) && !activeSet.has(p));
+  if (wporgToInstall.length) { await wpOk(ctx, ["plugin", "install", ...wporgToInstall, "--activate"]); installed.push(...wporgToInstall); }
+  if (wporgToActivate.length) { await wpOk(ctx, ["plugin", "activate", ...wporgToActivate]); installed.push(...wporgToActivate); }
 
   for (const v of VENDOR_PLUGINS) {
-    if (active.has(v.slug)) continue;
+    if (activeSet.has(v.slug)) continue;
+    if (installedSet.has(v.slug)) { await wpOk(ctx, ["plugin", "activate", v.slug]); installed.push(v.slug); continue; }
     const zip = findVendorZip(ctx.config.vendorDir, v.prefix);
     if (!zip) { missingVendor.push(v.slug); continue; }
     await wpOk(ctx, ["plugin", "install", `/vendor/${zip}`, "--activate"]);
