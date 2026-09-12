@@ -37,6 +37,10 @@ export function resolveModel(config: FaktoryConfig, stage: string, override?: st
   return override ?? config.models[stage] ?? config.models.default;
 }
 
+export function effectiveAllowedTools(tools: string[]): string[] {
+  return Array.from(new Set([...tools, "Skill"]));
+}
+
 export type AgentRun = { text: string; structured?: unknown; costUsd: number; sessionId?: string; numTurns: number };
 
 export async function runAgent(
@@ -55,7 +59,9 @@ export async function runAgent(
       cwd: ctx.siteDir,
       model: resolveModel(ctx.config, opts.stage, opts.model),
       systemPrompt: opts.systemPrompt,
-      allowedTools: opts.allowedTools,
+      allowedTools: effectiveAllowedTools(opts.allowedTools),
+      settingSources: [],
+      skills: "all",
       plugins: [{ type: "local", path: pluginPath(ctx.config) }],
       mcpServers: { [FAKTORY_SERVER]: server },
       hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir)] }] },

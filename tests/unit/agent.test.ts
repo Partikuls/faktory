@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isInside, writeGuard, pluginPath, resolveModel } from "../../src/agent.js";
+import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools } from "../../src/agent.js";
 import { loadConfig } from "../../src/config.js";
 
 describe("isInside", () => {
@@ -38,5 +38,12 @@ describe("resolveModel / pluginPath", () => {
   });
   it("points at <repo>/plugin", () => {
     expect(pluginPath(config)).toBe("/tmp/fk/plugin");
+  });
+});
+
+describe("effectiveAllowedTools", () => {
+  it("appends Skill, deduplicated", () => {
+    expect(effectiveAllowedTools(["mcp__faktory__wp"])).toEqual(["mcp__faktory__wp", "Skill"]);
+    expect(effectiveAllowedTools(["mcp__faktory__wp", "Skill"])).toEqual(["mcp__faktory__wp", "Skill"]);
   });
 });

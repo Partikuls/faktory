@@ -76,12 +76,14 @@ program.command("doctor").description("Check local toolchain and skill loading")
       const r = await runAgent(ctx, {
         stage: "doctor",
         prompt: "List the names of every skill available to you, one per line, then call the wp tool with args [\"cli\",\"version\"] and print its output verbatim. Nothing else.",
-        allowedTools: [TOOL_WP, "Skill"],
+        allowedTools: [TOOL_WP],
         maxTurns: 4,
         model: "claude-sonnet-5",
       });
       console.log("\n--- agent ---\n" + r.text + `\n--- cost $${r.costUsd.toFixed(4)}, ${r.numTurns} turns ---`);
-      const ok = r.text.includes("generatepress-generateblocks") && /WP-CLI \d/.test(r.text);
+      const leaked = r.text.includes("wordpress-content-writer");
+      const ok = r.text.includes("generatepress-generateblocks") && /WP-CLI \d/.test(r.text) && !leaked;
+      if (leaked) console.log("✖ global skills leaked into the agent context");
       console.log(ok ? "✔ skills loaded and wp tool reachable" : "✖ skills or wp tool not visible to the agent — check plugin/ layout and docker state");
       if (!ok) process.exit(1);
     }
