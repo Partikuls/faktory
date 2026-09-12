@@ -1,0 +1,7 @@
+node_modules/
+dist/
+sites/
+docker/vendor/*.zip
+docker/.env
+plugin/skills/
+.DS_Store
