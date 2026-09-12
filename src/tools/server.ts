@@ -1,10 +1,15 @@
 import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve, sep } from "node:path";
 import type { SiteContext } from "../docker.js";
 import { runWp } from "../wp.js";
+import { gbBuild, gbPreview, countBlocks, type PreviewOptions } from "../gb.js";
 
 export const FAKTORY_SERVER = "faktory";
 export const TOOL_WP = `mcp__${FAKTORY_SERVER}__wp`;
+export const TOOL_GB_BUILD = `mcp__${FAKTORY_SERVER}__gb_build`;
+export const TOOL_GB_PREVIEW = `mcp__${FAKTORY_SERVER}__gb_preview`;
 const MAX_OUT = 20_000;
 const FORBIDDEN: string[][] = [
   ["db", "drop"],
@@ -27,6 +32,47 @@ function forbidden(args: string[]): string | undefined {
 }
 function clip(s: string): string { return s.length > MAX_OUT ? s.slice(0, MAX_OUT) + "\n[truncated]" : s; }
 
+/** Resolve a tool-supplied path against the site dir; absolute paths and `..` escapes are refused. (Same check as `isInside` in agent.ts, inlined: agent.ts imports this module.) */
+export function resolveSitePath(ctx: SiteContext, rel: string): string {
+  const base = resolve(ctx.siteDir), abs = resolve(base, rel);
+  if (abs !== base && !abs.startsWith(base + sep)) throw new Error(`Path "${rel}" must stay inside the site directory`);
+  return abs;
+}
+
+const ok = (text: string): { content: { type: "text"; text: string }[] } => ({ content: [{ type: "text" as const, text }] });
+const fail = (text: string): { content: { type: "text"; text: string }[]; isError: true } => ({ content: [{ type: "text" as const, text }], isError: true });
+
+export function gbBuildToolHandler(ctx: SiteContext) {
+  return async (input: { tree: unknown; out: string }): Promise<{ content: { type: "text"; text: string }[]; isError?: true }> => {
+    try {
+      const abs = resolveSitePath(ctx, input.out);
+      const markup = await gbBuild(ctx.config, input.tree);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, markup);
+      const n = countBlocks(markup);
+      return ok(`Wrote ${input.out} (${n} block${n === 1 ? "" : "s"}, ${Buffer.byteLength(markup)} bytes). Next: gb_preview to render it.`);
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : String(err));
+    }
+  };
+}
+
+export function gbPreviewToolHandler(ctx: SiteContext) {
+  return async (input: { markup: string; out: string } & PreviewOptions): Promise<{ content: { type: "text"; text: string }[]; isError?: true }> => {
+    try {
+      const src = resolveSitePath(ctx, input.markup);
+      const dst = resolveSitePath(ctx, input.out);
+      if (!existsSync(src)) return fail(`Markup file not found: ${input.markup} — run gb_build first`);
+      mkdirSync(dirname(dst), { recursive: true });
+      const { markup: _m, out: _o, ...opts } = input;
+      await gbPreview(ctx.config, src, dst, opts);
+      return ok(`Wrote ${input.out}. Read it to inspect the compiled HTML/CSS, or open it in a browser.`);
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : String(err));
+    }
+  };
+}
+
 export function wpToolHandler(ctx: SiteContext) {
   return async (input: { args: string[]; stdin?: string }) => {
     const reason = forbidden(input.args);
@@ -46,5 +92,28 @@ export function createFaktoryServer(ctx: SiteContext) {
     { args: z.array(z.string()).min(1).describe("wp-cli arguments without the leading 'wp'"), stdin: z.string().optional().describe("Text piped to the command's stdin") },
     wpToolHandler(ctx),
   );
-  return createSdkMcpServer({ name: FAKTORY_SERVER, version: "0.1.0", tools: [wp] });
+  const gbBuildTool = tool(
+    "gb_build",
+    "Compile a GenerateBlocks tree (gb_build.py JSON: a node or an array of section nodes with type/tagName/styles/innerBlocks/content/htmlAttributes) into WordPress block markup and write it to `out` (path relative to the site directory).",
+    {
+      tree: z.union([z.record(z.string(), z.unknown()), z.array(z.record(z.string(), z.unknown()))]).describe("gb_build.py tree"),
+      out: z.string().describe("Output markup path relative to the site dir, e.g. design/preview.gb.html"),
+    },
+    gbBuildToolHandler(ctx),
+  );
+  const gbPreviewTool = tool(
+    "gb_preview",
+    "Render compiled GenerateBlocks markup into a standalone preview HTML (stub GeneratePress shell). Optionally inject the palette (keys: base, base-2, base-3, contrast, contrast-2, contrast-3, accent, accent-2 → hex), Google Fonts, heading/body font families and the container width so the preview matches the design tokens.",
+    {
+      markup: z.string().describe("Markup path relative to the site dir (output of gb_build)"),
+      out: z.string().describe("Preview HTML path relative to the site dir, e.g. preview.html"),
+      palette: z.record(z.string(), z.string()).optional(),
+      fonts: z.array(z.object({ family: z.string(), variants: z.string().optional() })).optional(),
+      headingFont: z.string().optional(),
+      bodyFont: z.string().optional(),
+      containerWidth: z.number().int().optional(),
+    },
+    gbPreviewToolHandler(ctx),
+  );
+  return createSdkMcpServer({ name: FAKTORY_SERVER, version: "0.1.0", tools: [wp, gbBuildTool, gbPreviewTool] });
 }

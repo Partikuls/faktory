@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { loadConfig } from "../../src/config.js";
 import { createState } from "../../src/state.js";
 import type { SiteContext } from "../../src/docker.js";
 import { deps } from "../../src/wp.js";
-import { wpToolHandler, createFaktoryServer, TOOL_WP } from "../../src/tools/server.js";
+import { gbScript, deps as gbDeps } from "../../src/gb.js";
+import { wpToolHandler, createFaktoryServer, TOOL_WP, resolveSitePath, gbBuildToolHandler, gbPreviewToolHandler, TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../../src/tools/server.js";
 
 const ctx: SiteContext = { config: loadConfig("/tmp/fk"), slug: "demo", siteDir: "/tmp/fk/sites/demo", state: createState("demo", 8100, "pw") };
 
@@ -60,5 +64,55 @@ describe("wp tool", () => {
     const server = createFaktoryServer(ctx);
     expect(server).toBeTruthy();
     expect(TOOL_WP).toBe("mcp__faktory__wp");
+  });
+});
+
+describe("resolveSitePath", () => {
+  it("joins relative paths and rejects escapes", () => {
+    expect(resolveSitePath(ctx, "design/preview.gb.html")).toBe("/tmp/fk/sites/demo/design/preview.gb.html");
+    expect(() => resolveSitePath(ctx, "../other/x.html")).toThrow(/inside the site directory/);
+    expect(() => resolveSitePath(ctx, "/etc/passwd")).toThrow(/inside the site directory/);
+  });
+});
+
+describe("gb tools", () => {
+  const tmpCtx = () => ({ ...ctx, siteDir: mkdtempSync(join(tmpdir(), "fk-tools-")) });
+  it("exposes the tool names", () => {
+    expect(TOOL_GB_BUILD).toBe("mcp__faktory__gb_build");
+    expect(TOOL_GB_PREVIEW).toBe("mcp__faktory__gb_preview");
+  });
+  it("gb_build writes the compiled markup and reports the block count", async () => {
+    vi.spyOn(gbDeps, "run").mockResolvedValue({ stdout: "<!-- wp:generateblocks/element {} -->\n<div></div>\n<!-- /wp:generateblocks/element -->\n", stderr: "", code: 0 });
+    const c = tmpCtx();
+    const r = await gbBuildToolHandler(c)({ tree: [{ type: "element" }], out: "design/preview.gb.html" });
+    expect(r.isError).toBeFalsy();
+    expect(r.content[0].text).toMatch(/Wrote design\/preview.gb.html \(1 block/);
+    expect(readFileSync(join(c.siteDir, "design/preview.gb.html"), "utf8")).toContain("wp:generateblocks/element");
+  });
+  it("gb_build reports python errors as tool errors", async () => {
+    vi.spyOn(gbDeps, "run").mockResolvedValue({ stdout: "", stderr: "KeyError: 'type'", code: 1 });
+    const r = await gbBuildToolHandler(tmpCtx())({ tree: {}, out: "x.html" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toContain("KeyError");
+  });
+  it("gb_build refuses to write outside the site dir without running python", async () => {
+    const spy = vi.spyOn(gbDeps, "run");
+    const r = await gbBuildToolHandler(tmpCtx())({ tree: {}, out: "../../x.html" });
+    expect(r.isError).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it("gb_preview requires an existing markup file", async () => {
+    const r = await gbPreviewToolHandler(tmpCtx())({ markup: "design/missing.html", out: "preview.html" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toMatch(/not found/);
+  });
+  it.skipIf(!existsSync(gbScript(ctx.config, "gb_preview.py")))("gb_preview renders and injects the palette (python3)", async () => {
+    const c = { ...tmpCtx(), config: loadConfig(process.cwd()) };
+    writeFileSync(join(c.siteDir, "m.html"), '<!-- wp:generateblocks/text {"uniqueId":"abcd1234","tagName":"p","css":".gb-text-abcd1234{color:var(\\u002d\\u002daccent)}"} -->\n<p class="gb-text gb-text-abcd1234">Hi</p>\n<!-- /wp:generateblocks/text -->\n');
+    const r = await gbPreviewToolHandler(c)({ markup: "m.html", out: "preview.html", palette: { accent: "#123456" }, fonts: [{ family: "Fraunces", variants: "400,700" }], headingFont: "Fraunces" });
+    expect(r.isError).toBeFalsy();
+    const html = readFileSync(join(c.siteDir, "preview.html"), "utf8");
+    expect(html).toContain("--accent:#123456");
+    expect(html).toContain("family=Fraunces:wght@400;700");
   });
 });
