@@ -34,7 +34,7 @@ brief.md ──▶ [1 spec] ──▶ SITE-SPEC.md ──▶ ⏸ checkpoint 1
    [3 provision] (déterministe, sans LLM) ──▶ WP up, GP/GB/Premium/Pro/GF/Yoast, child theme, tokens appliqués, menus, header/footer
         │
         ▼
-   [4 plugins] ──▶ sites/<slug>/plugins/<name>/ (PHP) ──▶ php -l + PHPStan ──▶ activate + seed
+   [4 plugins] ──▶ sites/<slug>/wp-content/plugins/<name>/ (PHP) ──▶ php -l + PHPStan ──▶ activate + seed
         │
         ▼
    [5 pages] ──▶ pages/<slug>.gb.json ──▶ gb_build.py ──▶ wp post create + meta GP
