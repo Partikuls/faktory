@@ -95,7 +95,8 @@ docker/
 sites/                  # gitignoré : un workspace par site
   <slug>/
     brief.md  SITE-SPEC.md  design-system.md  design-tokens.json  preview.html
-    faktory.json  pages/*.gb.json  pages/*.html  plugins/<name>/  content/  qa/  dist/
+    faktory.json  pages/*.gb.json  pages/*.html  content/  qa/  dist/
+    wp-content/          # bind-mounted into the container; custom plugins go in wp-content/plugins/<name>/
 fixtures/briefs/boulangerie.md      # brief de test réaliste (PME, 6 pages, 1 plugin "horaires & produits")
 docs/superpowers/specs/2026-09-12-faktory-design.md   # ce design, committé en tâche 1
 tests/
@@ -126,7 +127,7 @@ Script TS pur, idempotent :
 6. Menus (`wp menu create` + items depuis le sitemap), header et footer en GP Premium Elements (bloc GB compilé, CPT `gp_elements`, meta type/display conditions relevées de la même façon).
 
 ### 4. `plugins` — un `query()` par feature
-- Entrée : `site-spec.json.features[i]` → `plugin-spec`. Sortie : `sites/<slug>/plugins/<name>/` monté dans le conteneur (`wp-content/plugins/`).
+- Entrée : `site-spec.json.features[i]` → `plugin-spec`. Sortie : `sites/<slug>/wp-content/plugins/<name>/` (bind mount).
 - Contrat de plugin : header standard, `includes/` (register CPT/tax/meta), `blocks/<name>/block.json + render.php` (bloc dynamique rendu serveur, insérable dans les pages GB via `type: raw`), shortcode équivalent, colonnes admin, désinstallation propre.
 - Outils : Read, Write, Edit, Glob, Grep, `php_check`, `wp`. Bash refusé via hook PreToolUse. Skills `wp-plugin-development`, `wp-block-development`.
 - Boucle : écrire → `php_check` (php -l + PHPStan niveau 5 avec `szepeviktor/phpstan-wordpress`) → corriger → `wp plugin activate` → seed 3-5 entrées de démo → `wp post list --post_type=<cpt>` pour prouver.

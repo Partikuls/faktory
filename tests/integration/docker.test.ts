@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { loadConfig } from "../../src/config.js";
 import { initSite } from "../../src/workspace.js";
 import { composeUp, composeDown, composeExec, type SiteContext } from "../../src/docker.js";
+import { waitForDb } from "../../src/wp.js";
 
 describe.skipIf(!process.env.FAKTORY_DOCKER)("docker stack", () => {
   const repoRoot = resolve(".");
@@ -17,6 +18,7 @@ describe.skipIf(!process.env.FAKTORY_DOCKER)("docker stack", () => {
   it("boots the stack and wp-cli can reach the db", async () => {
     const up = await composeUp(ctx);
     expect(up.code, up.stderr).toBe(0);
+    await waitForDb(ctx);
     const info = await composeExec(ctx, "wpcli", ["wp", "--info"]);
     expect(info.code, info.stderr).toBe(0);
     expect(info.stdout).toContain("WP-CLI version");
