@@ -16,4 +16,8 @@ describe("run", () => {
     const r = await run("definitely-not-a-binary-xyz", []);
     expect(r.code).toBe(127);
   });
+  it("does not crash when the child exits before draining stdin", async () => {
+    const r = await run("sh", ["-c", "exit 0"], { input: "y".repeat(2_000_000) });
+    expect(r.code).toBe(0);
+  });
 });

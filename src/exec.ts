@@ -16,6 +16,7 @@ export function run(
       resolve({ stdout, stderr: stderr + err.message, code: err.code === "ENOENT" ? 127 : 1 });
     });
     child.on("close", (code) => resolve({ stdout, stderr, code: code ?? 1 }));
+    child.stdin.on("error", () => {});
     if (opts.input !== undefined) child.stdin.write(opts.input);
     child.stdin.end();
   });
