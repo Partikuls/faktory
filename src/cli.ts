@@ -9,6 +9,7 @@ import { runSite, approveSite, destroySite, loadContext } from "./pipeline.js";
 import { STAGES, type StageName } from "./state.js";
 import { run } from "./exec.js";
 import { runAgent, pluginPath, pluginSkillNames } from "./agent.js";
+import { gbScript } from "./gb.js";
 import { findVendorZip, VENDOR_PLUGINS } from "./provision/stack.js";
 import { TOOL_WP } from "./tools/server.js";
 
@@ -71,6 +72,8 @@ program.command("doctor").description("Check local toolchain and skill loading")
     checks.push(["python3", await ver("python3", ["--version"]), "needed by gb_build.py"]);
     checks.push(["rsync", await ver("rsync", ["--version"]), "needed by sync-skills"]);
     checks.push(["skills synced", existsSync(join(pluginPath(config), "skills", "generatepress-generateblocks", "SKILL.md")), "run npm run sync-skills"]);
+    const gbProbe = await run("python3", [gbScript(config, "gb_build.py")], { input: JSON.stringify({ type: "text", content: "ok" }) });
+    checks.push(["gb_build.py", gbProbe.code === 0 && gbProbe.stdout.includes("wp:generateblocks/text"), "python3 + synced skills required"]);
     for (const v of VENDOR_PLUGINS) checks.push([`vendor ${v.slug}`, !!findVendorZip(config.vendorDir, v.prefix), `drop ${v.prefix}*.zip in docker/vendor/ (optional)`, true]);
     for (const [name, ok, hint, optional] of checks) console.log(`${ok ? "✔" : optional ? "ℹ" : "✖"} ${name}${ok ? "" : ` — ${hint}`}`);
     if (process.env.ANTHROPIC_API_KEY) {

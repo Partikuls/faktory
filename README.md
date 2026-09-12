@@ -17,17 +17,30 @@ npm run faktory -- doctor           # add --agent to verify skill loading with a
 ## Usage
 ```bash
 npm run faktory -- init boulangerie --brief fixtures/briefs/boulangerie.md
-npm run faktory -- run boulangerie          # runs from the first incomplete stage; stops at checkpoints
-npm run faktory -- approve boulangerie      # after editing SITE-SPEC.md / design-system.md
-npm run faktory -- run boulangerie --only provision
+npm run faktory -- run boulangerie          # spec → stops: edit sites/boulangerie/SITE-SPEC.md
+npm run faktory -- approve boulangerie      # re-syncs site-spec.json if you edited the markdown
+npm run faktory -- run boulangerie          # design → stops: open preview.html, edit design-system.md
+npm run faktory -- approve boulangerie      # re-syncs design-tokens.json if you edited the markdown
+npm run faktory -- run boulangerie          # provision: WP + GP stack, identity, pages, menu, tokens, footer
+npm run faktory -- run boulangerie --only design --max-cost 10
 npm run faktory -- destroy boulangerie
-npm run faktory -- doctor --agent      # smoke test: lists the 4 plugin skills and calls the wp tool
+npm run faktory -- doctor --agent
 ```
-Sites live in `sites/<slug>/` (gitignored). `faktory.json` holds stage status, port, admin credentials and cost.
+Sites live in `sites/<slug>/` (gitignored). `faktory.json` holds stage status, port, admin credentials and cumulated cost.
 Site URL: `http://localhost:<port>` (ports start at 8100). Admin: `admin` / password in `faktory.json`.
 
+### Artifacts
+| File | Written by | Edit it? |
+|---|---|---|
+| `SITE-SPEC.md` / `site-spec.json` | spec stage | Edit the `.md`; `approve` re-extracts the JSON when the `.md` is newer |
+| `design-system.md` / `design-tokens.json` / `preview.html` | design stage | Edit the `.md` (tokens section included); `approve` re-extracts the JSON and re-renders the preview |
+| `design/preview.gb.json`, `design/preview.gb.html` | design stage | Intermediate gb_build tree and markup |
+
+### Cost
+`maxCostUsd` in `faktory.config.json` (default 40) caps the cumulated cost of a site; `run --max-cost <usd>` overrides it for one invocation. The SDK also receives the remaining budget as `maxBudgetUsd`. Measured on the boulangerie brief: spec ≈ $0.52 (+ ≈$0.31 for a re-sync triggered by editing `SITE-SPEC.md`), design ≈ $0.90–$1.41 per attempt.
+
 ## Stages
-spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 1 implements `provision`; other stages are marked "skipped (not implemented)".
+spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Other stages are marked "skipped (not implemented)".
 
 ## Tests
 ```bash
