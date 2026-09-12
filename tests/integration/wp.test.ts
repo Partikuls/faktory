@@ -9,9 +9,13 @@ import { waitForDb, wpOk } from "../../src/wp.js";
 
 describe.skipIf(!process.env.FAKTORY_DOCKER)("wp runner (docker)", () => {
   const config = { ...loadConfig(resolve(".")), sitesRoot: mkdtempSync(join(tmpdir(), "faktory-sites-")), portBase: 8191 };
-  const { dir, state } = initSite(config, { slug: "itwp", briefPath: "fixtures/briefs/boulangerie.md" });
-  const ctx: SiteContext = { config, slug: "itwp", siteDir: dir, state };
-  beforeAll(async () => { const up = await composeUp(ctx); if (up.code !== 0) throw new Error(up.stderr); });
+  let ctx: SiteContext;
+  beforeAll(async () => {
+    const { dir, state } = await initSite(config, { slug: "itwp", briefPath: "fixtures/briefs/boulangerie.md" });
+    ctx = { config, slug: "itwp", siteDir: dir, state };
+    const up = await composeUp(ctx);
+    if (up.code !== 0) throw new Error(up.stderr);
+  });
   afterAll(async () => { await composeDown(ctx, { volumes: true }); });
 
   it("waits for db and reads core version", async () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -10,9 +10,12 @@ import { waitForDb } from "../../src/wp.js";
 describe.skipIf(!process.env.FAKTORY_DOCKER)("docker stack", () => {
   const repoRoot = resolve(".");
   const config = { ...loadConfig(repoRoot), sitesRoot: mkdtempSync(join(tmpdir(), "faktory-sites-")), portBase: 8190 };
-  const { dir, state } = initSite(config, { slug: "itdocker", briefPath: "fixtures/briefs/boulangerie.md" });
-  const ctx: SiteContext = { config, slug: "itdocker", siteDir: dir, state };
+  let ctx: SiteContext;
 
+  beforeAll(async () => {
+    const { dir, state } = await initSite(config, { slug: "itdocker", briefPath: "fixtures/briefs/boulangerie.md" });
+    ctx = { config, slug: "itdocker", siteDir: dir, state };
+  });
   afterAll(async () => { await composeDown(ctx, { volumes: true }); });
 
   it("boots the stack and wp-cli can reach the db", async () => {

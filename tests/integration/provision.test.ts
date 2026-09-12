@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -9,7 +9,7 @@ import { wpJson } from "../../src/wp.js";
 
 describe.skipIf(!process.env.FAKTORY_DOCKER)("provision stage (docker)", () => {
   const config = { ...loadConfig(resolve(".")), sitesRoot: mkdtempSync(join(tmpdir(), "faktory-sites-")), portBase: 8192 };
-  initSite(config, { slug: "itprov", briefPath: "fixtures/briefs/boulangerie.md" });
+  beforeAll(async () => { await initSite(config, { slug: "itprov", briefPath: "fixtures/briefs/boulangerie.md" }); });
   afterAll(async () => { await destroySite(config, "itprov"); });
 
   it("installs WordPress fr_FR with GeneratePress, GenerateBlocks, Yoast and the child theme, and is idempotent", async () => {
