@@ -13,6 +13,8 @@ export interface Stage {
 
 export const registry: Partial<Record<StageName, Stage>> = { provision: provisionStage };
 
+export const deps = { composeDown };
+
 export function loadContext(config: FaktoryConfig, slug: string): SiteContext {
   const dir = siteDir(config, slug);
   if (!existsSync(dir)) throw new Error(`Unknown site "${slug}" (expected ${dir})`);
@@ -64,8 +66,14 @@ export function approveSite(config: FaktoryConfig, slug: string): SiteState {
   return persist(ctx, setStage(ctx.state, waiting, "done", "approved"));
 }
 
-export async function destroySite(config: FaktoryConfig, slug: string): Promise<void> {
+export async function destroySite(config: FaktoryConfig, slug: string, opts: { force?: boolean } = {}): Promise<void> {
   const ctx = loadContext(config, slug);
-  await composeDown(ctx, { volumes: true });
+  const down = await deps.composeDown(ctx, { volumes: true });
+  if (down.code !== 0) {
+    if (!opts.force) {
+      throw new Error(`docker compose down failed for faktory-${slug}; workspace kept so you can retry: ${down.stderr.trim()}`);
+    }
+    console.warn(`⚠ docker compose down failed for faktory-${slug}: ${down.stderr.trim()} — deleting workspace anyway (--force)`);
+  }
   rmSync(ctx.siteDir, { recursive: true, force: true });
 }

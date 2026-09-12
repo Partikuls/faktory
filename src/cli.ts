@@ -25,7 +25,7 @@ program.command("init <slug>").description("Create a site workspace from a brief
   .requiredOption("--brief <path>", "Path to brief.md")
   .action(async (slug: string, opts: { brief: string }) => {
     const config = loadConfig();
-    const { dir, state } = initSite(config, { slug, briefPath: opts.brief });
+    const { dir, state } = await initSite(config, { slug, briefPath: opts.brief });
     console.log(`Site "${slug}" created at ${dir} (port ${state.port}).`);
     console.log(`Next: faktory run ${slug}`);
   });
@@ -40,29 +40,30 @@ program.command("approve <slug>").description("Mark the awaiting checkpoint as a
   .action(async (slug: string) => { const s = approveSite(loadConfig(), slug); console.log(`Approved. Next: faktory run ${s.slug}`); });
 program.command("destroy <slug>").description("Stop containers, drop volumes, delete workspace")
   .option("--yes", "Skip confirmation")
-  .action(async (slug: string, opts: { yes?: boolean }) => {
+  .option("--force", "Delete the workspace even if docker compose down fails")
+  .action(async (slug: string, opts: { yes?: boolean; force?: boolean }) => {
     if (!opts.yes) {
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
       const a = await rl.question(`Destroy site "${slug}" (containers, volumes, workspace)? [y/N] `);
       rl.close();
       if (a.trim().toLowerCase() !== "y") { console.log("Aborted."); return; }
     }
-    await destroySite(loadConfig(), slug);
+    await destroySite(loadConfig(), slug, { force: opts.force });
     console.log(`Site "${slug}" destroyed.`);
   });
 program.command("doctor").description("Check local toolchain and skill loading")
   .option("--agent", "Also run a tiny Agent SDK query to verify skill/plugin loading (costs a few cents)")
   .action(async (opts: { agent?: boolean }) => {
     const config = loadConfig();
-    const checks: [string, boolean, string][] = [];
+    const checks: [string, boolean, string, boolean?][] = [];
     const ver = async (cmd: string, args: string[]) => (await run(cmd, args)).code === 0;
     checks.push(["docker", await ver("docker", ["--version"]), "install Docker Desktop"]);
     checks.push(["docker compose", await ver("docker", ["compose", "version"]), "Compose v2+ required"]);
     checks.push(["python3", await ver("python3", ["--version"]), "needed by gb_build.py"]);
     checks.push(["rsync", await ver("rsync", ["--version"]), "needed by sync-skills"]);
     checks.push(["skills synced", existsSync(join(pluginPath(config), "skills", "generatepress-generateblocks", "SKILL.md")), "run npm run sync-skills"]);
-    for (const v of VENDOR_PLUGINS) checks.push([`vendor ${v.slug}`, !!findVendorZip(config.vendorDir, v.prefix), `drop ${v.prefix}*.zip in docker/vendor/ (optional)`]);
-    for (const [name, ok, hint] of checks) console.log(`${ok ? "✔" : "✖"} ${name}${ok ? "" : ` — ${hint}`}`);
+    for (const v of VENDOR_PLUGINS) checks.push([`vendor ${v.slug}`, !!findVendorZip(config.vendorDir, v.prefix), `drop ${v.prefix}*.zip in docker/vendor/ (optional)`, true]);
+    for (const [name, ok, hint, optional] of checks) console.log(`${ok ? "✔" : optional ? "ℹ" : "✖"} ${name}${ok ? "" : ` — ${hint}`}`);
     if (process.env.ANTHROPIC_API_KEY) {
       console.log("✔ ANTHROPIC_API_KEY set");
     } else {
