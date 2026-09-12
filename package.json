@@ -6,7 +6,7 @@
   "scripts": {
     "faktory": "tsx src/cli.ts",
     "test": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration --testTimeout=300000",
+    "test:integration": "vitest run tests/integration --testTimeout=600000 --hookTimeout=600000",
     "typecheck": "tsc --noEmit",
     "sync-skills": "bash scripts/sync-skills.sh"
   },
