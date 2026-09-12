@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { loadConfig } from "./config.js";
+import { initSite } from "./workspace.js";
 
 const program = new Command();
 program.name("faktory").description("WordPress AI software factory").version("0.1.0");
 
 program.command("init <slug>").description("Create a site workspace from a brief")
   .requiredOption("--brief <path>", "Path to brief.md")
-  .action(async () => { throw new Error("not implemented"); });
+  .action(async (slug: string, opts: { brief: string }) => {
+    const config = loadConfig();
+    const { dir, state } = initSite(config, { slug, briefPath: opts.brief });
+    console.log(`Site "${slug}" created at ${dir} (port ${state.port}).`);
+    console.log(`Next: faktory run ${slug}`);
+  });
 program.command("run <slug>").description("Run the pipeline from the first incomplete stage")
   .option("--from <stage>").option("--only <stage>")
   .action(async () => { throw new Error("not implemented"); });
