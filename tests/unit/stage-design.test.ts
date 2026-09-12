@@ -21,12 +21,13 @@ async function ctx(withSpec = true) {
   if (withSpec) writeJsonArtifact(c, "siteSpecJson", spec);
   return c;
 }
+const PREVIEW_TREE = [{ type: "element", tagName: "section", innerBlocks: [{ type: "text", tagName: "h1", content: "Bonjour" }] }];
+
 /** Simulates what the agent writes during its run. */
-function agentWrites(c: ReturnType<typeof loadContext>, files: { md?: boolean; markup?: boolean; preview?: boolean } = { md: true, markup: true, preview: true }) {
+function agentWrites(c: ReturnType<typeof loadContext>, files: { md?: boolean; tree?: boolean } = { md: true, tree: true }) {
   mkdirSync(join(c.siteDir, "design"), { recursive: true });
   if (files.md) writeFileSync(artifactPath(c, "designSystemMd"), "# Maison Rivet — Design System Web\n");
-  if (files.markup) writeFileSync(artifactPath(c, "previewMarkup"), "<!-- wp:generateblocks/element {} --><div></div><!-- /wp:generateblocks/element -->\n");
-  if (files.preview) writeFileSync(artifactPath(c, "previewHtml"), "<!doctype html><html><head><style>:root{--accent:#2563eb;}</style></head><body></body></html>");
+  if (files.tree) writeFileSync(artifactPath(c, "previewTree"), JSON.stringify(PREVIEW_TREE));
 }
 
 describe("design stage", () => {
@@ -35,9 +36,11 @@ describe("design stage", () => {
     const c = await ctx(false);
     await expect(designStage.run(c)).rejects.toThrow(/site-spec.json not found/);
   });
-  it("runs the agent with Read/Write/gb tools, validates tokens, writes design-tokens.json and re-renders the preview", async () => {
+  it("runs the agent with Read/Write/gb tools, compiles+renders the preview itself, validates tokens and writes design-tokens.json", async () => {
     const c = await ctx();
     const run = vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc); return { text: "", structured: tokens, costUsd: 1.5, numTurns: 20 }; });
+    const markup = "<!-- wp:generateblocks/element {} -->\n<section></section>\n<!-- /wp:generateblocks/element -->\n";
+    const build = vi.spyOn(deps, "gbBuild").mockResolvedValue(markup);
     const preview = vi.spyOn(deps, "gbPreview").mockResolvedValue(undefined);
     expect(designStage.checkpoint).toBe(true);
     const msg = await designStage.run(c);
@@ -47,19 +50,36 @@ describe("design stage", () => {
     expect(call.outputFormat?.type).toBe("json_schema");
     expect(call.systemPrompt).toContain("design-system.md");
     expect(call.prompt).toContain("Maison Rivet");
-    expect(readJsonArtifact(c, "designTokensJson", parseDesignTokens).containerWidth).toBe(1140);
+    expect(build).toHaveBeenCalledWith(c.config, PREVIEW_TREE);
+    expect(readFileSync(artifactPath(c, "previewMarkup"), "utf8")).toBe(markup);
     expect(preview).toHaveBeenCalledWith(c.config, artifactPath(c, "previewMarkup"), artifactPath(c, "previewHtml"), expect.objectContaining({ containerWidth: 1140, headingFont: "Fraunces" }));
+    expect(readJsonArtifact(c, "designTokensJson", parseDesignTokens).containerWidth).toBe(1140);
     expect(msg).toMatch(/design-system.md.*design-tokens.json.*preview.html.*\$1.50/);
   });
-  it("fails when the agent did not write design-system.md or the preview markup", async () => {
+  it("fails when the agent did not write design-system.md", async () => {
     const c = await ctx();
-    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc, { md: false, markup: true, preview: true }); return { text: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
+    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc, { md: false, tree: true }); return { text: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
     await expect(designStage.run(c)).rejects.toThrow(/design-system.md/);
+    expect(hasArtifact(c, "designTokensJson")).toBe(false);
+  });
+  it("fails when the agent did not write design/preview.gb.json", async () => {
+    const c = await ctx();
+    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc, { md: true, tree: false }); return { text: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
+    await expect(designStage.run(c)).rejects.toThrow(/preview.gb.json/);
+    expect(hasArtifact(c, "designTokensJson")).toBe(false);
+  });
+  it("fails when gb_build rejects", async () => {
+    const c = await ctx();
+    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc); return { text: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
+    vi.spyOn(deps, "gbBuild").mockRejectedValue(new Error("gb_build.py failed (exit 1): KeyError"));
+    await expect(designStage.run(c)).rejects.toThrow(/gb_build.py failed/);
     expect(hasArtifact(c, "designTokensJson")).toBe(false);
   });
   it("fails on invalid tokens before writing anything", async () => {
     const c = await ctx();
     vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc); return { text: "", structured: { ...tokens, palette: {} }, costUsd: 1, numTurns: 5 }; });
+    vi.spyOn(deps, "gbBuild").mockResolvedValue("<!-- wp:generateblocks/element {} -->\n<section></section>\n<!-- /wp:generateblocks/element -->\n");
+    vi.spyOn(deps, "gbPreview").mockResolvedValue(undefined);
     await expect(designStage.run(c)).rejects.toThrow(/Invalid design tokens/);
     expect(hasArtifact(c, "designTokensJson")).toBe(false);
   });

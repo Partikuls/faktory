@@ -2,8 +2,8 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Stage } from "../pipeline.js";
 import { runAgent } from "../agent.js";
-import { ARTIFACTS, artifactPath, hasArtifact, readJsonArtifact, writeJsonArtifact } from "../artifacts.js";
-import { gbPreview, previewOptionsFromTokens } from "../gb.js";
+import { ARTIFACTS, artifactPath, hasArtifact, readJsonArtifact, writeJsonArtifact, writeTextArtifact } from "../artifacts.js";
+import { gbBuild, gbPreview, previewOptionsFromTokens } from "../gb.js";
 import { designSystemPrompt } from "../prompts.js";
 import { toJsonSchema } from "../schemas/json-schema.js";
 import { DesignTokensShape, parseDesignTokens } from "../schemas/design-tokens.js";
@@ -11,7 +11,7 @@ import { parseSiteSpec, type SiteSpec } from "../schemas/site-spec.js";
 import { resyncFromMarkdown } from "../resync.js";
 import { TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../tools/server.js";
 
-export const deps = { runAgent, gbPreview };
+export const deps = { runAgent, gbBuild, gbPreview };
 
 export function designUserPrompt(spec: SiteSpec): string {
   const home = spec.sitemap.find((p) => p.kind === "home") ?? spec.sitemap[0];
@@ -40,9 +40,12 @@ export const designStage: Stage = {
       maxTurns: 40,
     });
     const tokens = parseDesignTokens(r.structured);
-    for (const key of ["designSystemMd", "previewMarkup"] as const) {
+    for (const key of ["designSystemMd", "previewTree"] as const) {
       if (!hasArtifact(ctx, key)) throw new Error(`design stage ended without writing ${ARTIFACTS[key]} — re-run with: faktory run ${ctx.slug} --only design`);
     }
+    const tree = readJsonArtifact(ctx, "previewTree", (u) => u);
+    const markup = await deps.gbBuild(ctx.config, tree);
+    writeTextArtifact(ctx, "previewMarkup", markup);
     await deps.gbPreview(ctx.config, artifactPath(ctx, "previewMarkup"), artifactPath(ctx, "previewHtml"), previewOptionsFromTokens(tokens));
     writeJsonArtifact(ctx, "designTokensJson", tokens); // last: never older than design-system.md
     return `design-system.md, design-tokens.json and preview.html written (open ${artifactPath(ctx, "previewHtml")}) — $${r.costUsd.toFixed(2)}`;

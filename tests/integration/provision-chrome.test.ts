@@ -10,7 +10,7 @@ import { artifactPath } from "../../src/artifacts.js";
 import { FOOTER_ELEMENT_SLUG } from "../../src/provision/footer.js";
 
 describe.skipIf(!process.env.FAKTORY_DOCKER)("provision with spec + tokens (docker)", () => {
-  const config = { ...loadConfig(resolve(".")), sitesRoot: mkdtempSync(join(tmpdir(), "faktory-sites-")), portBase: 8191 };
+  const config = { ...loadConfig(resolve(".")), sitesRoot: mkdtempSync(join(tmpdir(), "faktory-sites-")), portBase: 8193 };
   beforeAll(async () => {
     await initSite(config, { slug: "itchrome", briefPath: "fixtures/briefs/boulangerie.md" });
     const ctx = loadContext(config, "itchrome");
