@@ -1,0 +1,17 @@
+{
+  "palette": {
+    "base": "#faf6ef", "base2": "#f1e8d8", "base3": "#ffffff",
+    "contrast": "#2b1d0e", "contrast2": "#6b5a46", "contrast3": "#d9cdb8",
+    "accent": "#7a8b6f", "accent2": "#c89b3c"
+  },
+  "fonts": {
+    "heading": { "family": "Fraunces", "category": "serif", "variants": "400,600,700" },
+    "body": { "family": "Source Sans 3", "category": "sans-serif", "variants": "400,600" }
+  },
+  "type": { "body": 18, "h1": 52, "h2": 36, "h3": 26, "h4": 20, "lineHeightBody": 1.6, "lineHeightHeadings": 1.15, "headingWeight": "600" },
+  "spacing": [4, 8, 12, 16, 24, 32, 48, 64, 96, 128],
+  "sectionPadding": { "desktop": 96, "mobile": 56 },
+  "radius": 10,
+  "containerWidth": 1140,
+  "buttonStyle": "solid"
+}

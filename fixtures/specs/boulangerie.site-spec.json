@@ -1,0 +1,125 @@
+{
+  "identity": {
+    "name": "Maison Rivet",
+    "sector": "Boulangerie-pâtisserie artisanale",
+    "tagline": "Pain au levain et pâtisseries artisanales à Chantenay, Nantes",
+    "tone": "Chaleureux, artisanal, précis, sans kitsch",
+    "language": "fr",
+    "location": "Chantenay, Nantes",
+    "contact": {
+      "email": "contact@maisonrivet.fr",
+      "phone": "[à confirmer]",
+      "address": "[adresse à confirmer], 44100 Nantes",
+      "hours": ["Mardi – Vendredi : 7h00 – 19h30", "Samedi : 7h00 – 19h00", "Dimanche : 7h00 – 13h00", "Fermé le lundi"]
+    }
+  },
+  "sitemap": [
+    {
+      "slug": "accueil", "title": "Accueil", "kind": "home",
+      "goal": "Donner envie de venir en boutique et orienter vers la commande événementielle",
+      "seo": { "title": "Boulangerie Maison Rivet – Chantenay, Nantes", "metaDescription": "Boulangerie-pâtisserie artisanale à Chantenay (Nantes) : pain au levain, farines locales, viennoiseries et gâteaux sur commande depuis 1987.", "keywords": ["boulangerie Chantenay", "boulangerie Nantes", "pain au levain Nantes"] },
+      "sections": [
+        { "type": "hero", "heading": "Le pain comme en 1987, le levain comme toujours", "summary": "Accroche chaleureuse, photo d'ambiance, deux boutons : Nos produits et Commander pour un événement." },
+        { "type": "custom-query", "heading": "Nos incontournables", "summary": "Quatre produits mis en avant depuis le catalogue.", "feature": "catalogue_produits" },
+        { "type": "hours", "heading": "Horaires & accès", "summary": "Horaires par jour, adresse, lien vers la page contact." },
+        { "type": "text", "heading": "Une maison, deux générations", "summary": "Trois phrases sur l'histoire et le label Boulanger de France, lien vers La maison." },
+        { "type": "cta", "heading": "Un événement à fêter ?", "summary": "Gâteaux d'anniversaire, buffets d'entreprise : bouton vers Commandes & événements." }
+      ]
+    },
+    {
+      "slug": "nos-produits", "title": "Nos produits", "kind": "standard",
+      "goal": "Présenter le catalogue complet, filtrable par catégorie",
+      "seo": { "title": "Pains, viennoiseries et pâtisseries – Maison Rivet", "metaDescription": "Découvrez nos pains au levain, viennoiseries pur beurre, pâtisseries et salé du midi. Farines du Moulin de Sarré.", "keywords": ["pain au levain", "viennoiseries Nantes", "pâtisserie Chantenay"] },
+      "sections": [
+        { "type": "hero", "heading": "Nos produits", "summary": "Titre court et phrase sur les farines locales et le levain naturel." },
+        { "type": "custom-query", "heading": "Le catalogue", "summary": "Grille de tous les produits avec filtre par catégorie (pains, viennoiseries, pâtisseries, salé) et mention de disponibilité.", "feature": "catalogue_produits" },
+        { "type": "cta", "heading": "Envie d'une pièce sur mesure ?", "summary": "Renvoi vers la page Commandes & événements." }
+      ]
+    },
+    {
+      "slug": "commandes-evenements", "title": "Commandes & événements", "kind": "standard",
+      "goal": "Obtenir des demandes de devis pour anniversaires, mariages et buffets d'entreprise",
+      "seo": { "title": "Gâteaux et buffets sur commande – Maison Rivet Nantes", "metaDescription": "Anniversaires, mariages, buffets d'entreprise sur l'Île de Nantes : demandez un devis à la boulangerie Maison Rivet.", "keywords": ["gâteau anniversaire Nantes", "buffet entreprise Nantes", "traiteur boulangerie Nantes"] },
+      "sections": [
+        { "type": "hero", "heading": "Commandes & événements", "summary": "Promesse courte : du sur-mesure, préparé à la main, livré ou à retirer." },
+        { "type": "features", "heading": "Ce que nous préparons", "summary": "Trois cartes : anniversaires, mariages, buffets d'entreprise, avec délais de commande." },
+        { "type": "form", "heading": "Demander un devis", "summary": "Formulaire de demande de devis.", "form": "devis_evenement" }
+      ]
+    },
+    {
+      "slug": "la-maison", "title": "La maison", "kind": "standard",
+      "goal": "Raconter l'histoire, l'équipe, le levain et les fournisseurs pour créer la confiance",
+      "seo": { "title": "Notre histoire – Boulangerie Maison Rivet", "metaDescription": "Fondée en 1987, reprise en 2019 par Claire et Julien Rivet : une équipe de 6, un levain naturel et des farines du Moulin de Sarré.", "keywords": ["boulanger de France Nantes", "boulangerie artisanale histoire"] },
+      "sections": [
+        { "type": "hero", "heading": "La maison", "summary": "Titre et photo de la boutique." },
+        { "type": "text", "heading": "Depuis 1987", "summary": "Histoire en deux paragraphes, reprise en 2019." },
+        { "type": "features", "heading": "L'équipe", "summary": "Six portraits avec prénom et rôle (placeholders)." },
+        { "type": "text", "heading": "Le levain & les farines", "summary": "Levain naturel, Moulin de Sarré, label Boulanger de France." }
+      ]
+    },
+    {
+      "slug": "actualites", "title": "Actualités", "kind": "blog",
+      "goal": "Publier nouveautés saisonnières, recettes et coulisses",
+      "seo": { "title": "Actualités de la boulangerie – Maison Rivet", "metaDescription": "Nouveautés de saison, recettes et coulisses de la boulangerie Maison Rivet à Chantenay.", "keywords": ["actualités boulangerie Nantes", "recettes pain levain"] },
+      "sections": [ { "type": "text", "heading": "Actualités", "summary": "Liste des articles (gérée par WordPress)." } ]
+    },
+    {
+      "slug": "contact", "title": "Contact & horaires", "kind": "contact",
+      "goal": "Donner horaires, adresse, téléphone et un formulaire simple",
+      "seo": { "title": "Contact & horaires – Maison Rivet, Chantenay", "metaDescription": "Horaires d'ouverture, adresse et téléphone de la boulangerie Maison Rivet à Chantenay, Nantes. Écrivez-nous.", "keywords": ["boulangerie Chantenay horaires", "boulangerie Nantes contact"] },
+      "sections": [
+        { "type": "hours", "heading": "Horaires", "summary": "Horaires par jour." },
+        { "type": "contact", "heading": "Nous trouver", "summary": "Adresse, carte (placeholder), téléphone, email." },
+        { "type": "form", "heading": "Écrivez-nous", "summary": "Formulaire de contact simple.", "form": "contact" }
+      ]
+    }
+  ],
+  "features": [
+    {
+      "id": "catalogue_produits",
+      "name": "Catalogue produits",
+      "description": "Produits gérés depuis l'admin, filtrables par catégorie, 4 mis en avant sur l'accueil.",
+      "cpt": { "slug": "produit", "singular": "Produit", "plural": "Produits" },
+      "fields": [
+        { "key": "prix", "label": "Prix", "type": "price" },
+        { "key": "disponibilite", "label": "Disponibilité", "type": "select", "options": ["Tous les jours", "Week-end", "Sur commande"] },
+        { "key": "mis_en_avant", "label": "Mis en avant sur l'accueil", "type": "boolean" }
+      ],
+      "taxonomies": [ { "slug": "categorie_produit", "singular": "Catégorie", "plural": "Catégories", "terms": ["Pains", "Viennoiseries", "Pâtisseries", "Salé du midi"] } ],
+      "display": "Grille filtrable sur Nos produits ; 4 produits 'mis en avant' sur l'accueil ; photo, nom, description courte, prix, disponibilité."
+    }
+  ],
+  "forms": [
+    {
+      "id": "devis_evenement", "name": "Demande de devis événement", "recipient": "contact@maisonrivet.fr",
+      "fields": [
+        { "key": "nom", "label": "Nom", "type": "text", "required": true },
+        { "key": "email", "label": "Email", "type": "email", "required": true },
+        { "key": "telephone", "label": "Téléphone", "type": "phone", "required": true },
+        { "key": "date", "label": "Date de l'événement", "type": "date", "required": true },
+        { "key": "personnes", "label": "Nombre de personnes", "type": "number", "required": true },
+        { "key": "message", "label": "Votre projet", "type": "textarea", "required": false }
+      ]
+    },
+    {
+      "id": "contact", "name": "Contact", "recipient": "contact@maisonrivet.fr",
+      "fields": [
+        { "key": "nom", "label": "Nom", "type": "text", "required": true },
+        { "key": "email", "label": "Email", "type": "email", "required": true },
+        { "key": "message", "label": "Message", "type": "textarea", "required": true }
+      ]
+    }
+  ],
+  "blog": {
+    "categories": ["Saison", "Recettes", "Coulisses"],
+    "articles": [
+      { "title": "La galette des rois revient : frangipane ou pomme ?", "theme": "Saison", "keywords": ["galette des rois Nantes"] },
+      { "title": "Réussir ses tartines au levain à la maison", "theme": "Recettes", "keywords": ["recette pain levain"] },
+      { "title": "Une nuit au fournil : 4h du matin chez Maison Rivet", "theme": "Coulisses", "keywords": ["coulisses boulangerie"] }
+    ]
+  },
+  "menus": {
+    "primary": ["accueil", "nos-produits", "commandes-evenements", "la-maison", "actualites", "contact"],
+    "footer": ["nos-produits", "commandes-evenements", "la-maison", "actualites", "contact"]
+  }
+}
