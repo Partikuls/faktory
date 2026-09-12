@@ -28,7 +28,7 @@ describe("runSite", () => {
     const stages = { spec: ok("spec", true, log), design: ok("design", false, log) };
     await runSite(config, "pp", { stages });
     await expect(runSite(config, "pp", { stages })).rejects.toThrow(/awaits approval/);
-    approveSite(config, "pp");
+    await approveSite(config, "pp");
     const s = await runSite(config, "pp", { stages });
     expect(log).toEqual(["spec", "design"]);
     expect(s.stages.design.status).toBe("done");

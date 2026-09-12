@@ -4,6 +4,7 @@ import { composeDown, type SiteContext } from "./docker.js";
 import { STAGES, readState, writeState, setStage, firstIncompleteStage, awaitingStage, type SiteState, type StageName } from "./state.js";
 import { siteDir } from "./workspace.js";
 import { provisionStage } from "./stages/provision.js";
+import { specStage } from "./stages/spec.js";
 
 export interface Stage {
   name: StageName;
@@ -13,7 +14,7 @@ export interface Stage {
   onApprove?(ctx: SiteContext): Promise<string | void>;
 }
 
-export const registry: Partial<Record<StageName, Stage>> = { provision: provisionStage };
+export const registry: Partial<Record<StageName, Stage>> = { spec: specStage, provision: provisionStage };
 
 export const deps = { composeDown };
 
