@@ -5,9 +5,12 @@ import { STAGES, readState, writeState, setStage, firstIncompleteStage, awaiting
 import { siteDir } from "./workspace.js";
 import { isStale } from "./artifacts.js";
 import { RESYNC_TARGETS } from "./resync.js";
+import { assertBudget } from "./budget.js";
 import { provisionStage } from "./stages/provision.js";
 import { specStage } from "./stages/spec.js";
 import { designStage } from "./stages/design.js";
+
+export { assertBudget };
 
 export interface Stage {
   name: StageName;
@@ -31,13 +34,6 @@ function persist(ctx: SiteContext, next: SiteState): SiteState {
   ctx.state = next;
   writeState(ctx.siteDir, next);
   return next;
-}
-
-/** Throws the standard budget message when the site has already spent its cap (shared by `run`, `approve` and `resync`). */
-export function assertBudget(config: FaktoryConfig, state: SiteState): void {
-  if (state.costUsd >= config.maxCostUsd) {
-    throw new Error(`Cost budget reached ($${state.costUsd.toFixed(2)} >= $${config.maxCostUsd}); raise maxCostUsd in faktory.config.json or pass --max-cost to continue`);
-  }
 }
 
 export async function runSite(

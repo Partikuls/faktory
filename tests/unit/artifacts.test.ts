@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { loadConfig } from "../../src/config.js";
 import { createState } from "../../src/state.js";
 import type { SiteContext } from "../../src/docker.js";
-import { ARTIFACTS, artifactPath, hasArtifact, readJsonArtifact, writeJsonArtifact, writeTextArtifact, isStale } from "../../src/artifacts.js";
+import { ARTIFACTS, artifactPath, hasArtifact, readJsonArtifact, writeJsonArtifact, writeTextArtifact, isStale, pageTreePath, pageMarkupPath, pageTreeRel, pageMarkupRel } from "../../src/artifacts.js";
 
 function ctx(): SiteContext {
   const siteDir = mkdtempSync(join(tmpdir(), "fk-art-"));
@@ -47,5 +47,15 @@ describe("artifacts", () => {
     expect(ARTIFACTS.brief).toBe("brief.md");
     expect(ARTIFACTS.designTokensJson).toBe("design-tokens.json");
     expect(ARTIFACTS.previewHtml).toBe("preview.html");
+  });
+});
+
+describe("page artifact paths", () => {
+  it("live under pages/ with .gb.json and .html suffixes", () => {
+    const c = { config: loadConfig("/tmp/fk"), slug: "d", siteDir: "/tmp/fk/sites/d", state: createState("d", 8100, "pw") };
+    expect(pageTreeRel("nos-produits")).toBe("pages/nos-produits.gb.json");
+    expect(pageMarkupRel("nos-produits")).toBe("pages/nos-produits.html");
+    expect(pageTreePath(c, "nos-produits")).toBe("/tmp/fk/sites/d/pages/nos-produits.gb.json");
+    expect(pageMarkupPath(c, "nos-produits")).toBe("/tmp/fk/sites/d/pages/nos-produits.html");
   });
 });

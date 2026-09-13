@@ -60,3 +60,9 @@ export function isStale(ctx: SiteContext, mdKey: ArtifactKey, jsonKey: ArtifactK
   if (!existsSync(md) || !existsSync(json)) return false;
   return statSync(md).mtimeMs > statSync(json).mtimeMs + 1000;
 }
+
+export const PAGES_DIR = "pages";
+export const pageTreeRel = (slug: string): string => `${PAGES_DIR}/${slug}.gb.json`;
+export const pageMarkupRel = (slug: string): string => `${PAGES_DIR}/${slug}.html`;
+export const pageTreePath = (ctx: SiteContext, slug: string): string => join(ctx.siteDir, pageTreeRel(slug));
+export const pageMarkupPath = (ctx: SiteContext, slug: string): string => join(ctx.siteDir, pageMarkupRel(slug));
