@@ -111,7 +111,7 @@ function markerIsWrapped(tree: PageTree, kind: "feature" | "form", id: string): 
 
 const HEX_RE = /#[0-9a-fA-F]{3,8}\b/;
 
-function hexIssues(value: unknown, at: string, issues: string[]): void {
+export function hexIssues(value: unknown, at: string, issues: string[]): void {
   if (typeof value === "string") {
     const m = value.replace(/url\([^)]*\)/g, "").match(HEX_RE);
     if (m) issues.push(`${at}: hex color ${m[0]} — use var(--base), var(--accent)… instead`);
@@ -121,7 +121,7 @@ function hexIssues(value: unknown, at: string, issues: string[]): void {
 }
 
 /** Scripts, iframes, javascript: URLs and on* event handlers are never allowed in generated markup. */
-const DENYLIST_RE = /<script\b|<iframe\b|javascript:|\bon[a-z]+\s*=/i;
+export const DENYLIST_RE = /<script\b|<iframe\b|javascript:|\bon[a-z]+\s*=/i;
 
 function denylistIssue(value: string | undefined, path: string, issues: string[]): void {
   if (typeof value !== "string") return;

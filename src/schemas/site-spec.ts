@@ -50,6 +50,8 @@ export const Feature = z.object({
   display: z.string().describe("How and where entries are rendered (grid on which page, how many featured on home, filters)"),
 });
 
+export type Feature = z.infer<typeof Feature>;
+
 export const Form = z.object({
   id: key,
   name: z.string(),

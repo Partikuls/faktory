@@ -41,7 +41,7 @@ export async function initSite(config: FaktoryConfig, opts: { slug: string; brie
   if (!existsSync(opts.briefPath)) throw new Error(`Brief not found: ${opts.briefPath}`);
   const dir = siteDir(config, opts.slug);
   if (existsSync(join(dir, STATE_FILE))) throw new Error(`Site "${opts.slug}" already exists at ${dir}`);
-  for (const sub of ["", "wp-content", "pages", "content", "qa", "dist"]) mkdirSync(join(dir, sub), { recursive: true });
+  for (const sub of ["", "wp-content", "pages", "plugins", "content", "qa", "dist"]) mkdirSync(join(dir, sub), { recursive: true });
   copyFileSync(opts.briefPath, join(dir, "brief.md"));
   const state = createState(opts.slug, await allocatePort(config), randomBytes(12).toString("base64url"));
   writeState(dir, state);

@@ -20,7 +20,7 @@ describe("workspace", () => {
     const config = freshConfig();
     const { dir, state } = await initSite(config, { slug: "boulangerie", briefPath: BRIEF });
     expect(dir).toBe(siteDir(config, "boulangerie"));
-    for (const sub of ["brief.md", "faktory.json", "wp-content", "pages", "content", "qa", "dist"]) {
+    for (const sub of ["brief.md", "faktory.json", "wp-content", "pages", "plugins", "content", "qa", "dist"]) {
       expect(existsSync(join(dir, sub))).toBe(true);
     }
     expect(readFileSync(join(dir, "brief.md"), "utf8")).toContain("Maison Rivet");
