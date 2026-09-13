@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import type { SiteContext } from "../docker.js";
 import { pageTreePath } from "../artifacts.js";
 import { readPageTree } from "../pages/generate.js";
-import { applyPlugins, readPluginManifests } from "../pages/apply-plugins.js";
+import { applyPlacements, pluginPlacements, readPluginManifests } from "../pages/placements.js";
 import { assertRendered, pageUrl } from "../pages/render-check.js";
 import { compilePage, publishPage } from "../pages/publish.js";
 import type { PluginManifest } from "../schemas/plugin-manifest.js";
@@ -28,7 +28,7 @@ export async function integratePlugin(
     const id = ids[slug];
     if (!id) throw new Error(`no WordPress page for slug "${slug}" — run the provision stage first`);
     const tree = readPageTree(ctx, page);
-    const markup = await deps.compilePage(ctx, slug, applyPlugins(tree, manifests, slug).tree);
+    const markup = await deps.compilePage(ctx, slug, applyPlacements(tree, pluginPlacements(manifests, slug)).tree);
     await deps.publishPage(ctx, id, markup);
     await assertRendered(ctx, page, manifest.feature);
     pages.push(slug);

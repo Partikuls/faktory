@@ -6,7 +6,7 @@ import { mapLimit } from "../concurrency.js";
 import { ensurePages } from "../provision/pages.js";
 import { generatePageTree, readPageTree } from "../pages/generate.js";
 import { compilePage, publishPage } from "../pages/publish.js";
-import { applyPlugins, readPluginManifests } from "../pages/apply-plugins.js";
+import { applyPlacements, pluginPlacements, readPluginManifests } from "../pages/placements.js";
 import { assertRendered } from "../pages/render-check.js";
 import { parseSiteSpec, type Page } from "../schemas/site-spec.js";
 import { parseDesignTokens } from "../schemas/design-tokens.js";
@@ -48,13 +48,14 @@ export const pagesStage: Stage = {
         const g = await deps.generatePageTree(ctx, spec, page, { homeSlug: page.kind === "home" ? undefined : home.slug });
         tree = g.tree; cost += g.costUsd; generated.push(page.slug);
       }
-      const a = applyPlugins(tree, manifests, page.slug);
-      a.applied.forEach((id) => applied.add(id));
+      const a = applyPlacements(tree, pluginPlacements(manifests, page.slug));
+      const features = a.applied.map((p) => p.id);
+      features.forEach((id) => applied.add(id));
       const markup = await deps.compilePage(ctx, page.slug, a.tree);
       await deps.publishPage(ctx, ids[page.slug], markup);
       // Fresh-site order (provision → plugins → pages): the plugins stage had no tree to insert the block
       // into, so this is the only place the render contract of every applied plugin is checked.
-      for (const id of a.applied) await assertRendered(ctx, page, id);
+      for (const id of features) await assertRendered(ctx, page, id);
       console.log(`  ✔ ${page.kind === "home" ? "/" : `/${page.slug}/`} published`);
     };
 
