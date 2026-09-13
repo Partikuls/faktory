@@ -102,3 +102,15 @@ npm run faktory -- run boulangerie --only content
 #           meta Yoast sur 6 pages, 5 articles publiés ; coût mesuré à reporter dans README.md
 open http://localhost:8101/contact/ http://localhost:8101/actualites/
 ```
+
+## Écarts constatés à l'exécution (2026-09-13)
+
+- Articles empoisonnés : Faktory n'écrit `content/articles/<slug>.json` qu'après validation, donc rien n'est jamais supprimé automatiquement ; un fichier édité à la main et invalide fait échouer l'article avec un message « fix or delete it », et l'étape liste les slugs à corriger.
+- Page blog : la vérification cherche le lien de chaque article (`href="http://localhost:<port>/<slug>/"`) plutôt que son titre, que WordPress réécrit (apostrophes typographiques, entités).
+- Yoast échappe les apostrophes dans `<meta name="description">` (`&#039;`) : les contrôles de titre et de description décodent les entités HTML (`decodeEntities`) avant comparaison.
+- `assertRendered` (plugins) et `assertFormRendered` (formulaires) partagent un helper privé de page ; `assertContains` / `assertTitle` travaillent sur une URL.
+- `inlineHtmlIssues` : la liste noire (`<script`, `<iframe`, `javascript:`, `on*=`) est appliquée sur tout le texte, puis chaque balise doit être `<strong>`, `<em>`, `<a href="/…|https://…">` ou leur fermeture ; une fermeture orpheline (`</iframe>`) est refusée.
+- Spec fixture : les clés des champs du formulaire `devis_evenement` sont `date_evenement` et `nombre_personnes` (alignées sur la spec boulangerie réelle).
+- Mesuré sur boulangerie : `content` = $2.06 pour 5 articles (≈ $0,41 par article, 0 relance), formulaires #4 et #5 (les identifiants 1 à 3 ont servi aux sondages préalables), articles de 643 à 694 mots — sous la cible 700–900 du prompt mais dans les bornes 500–1 200 ; cumul du site $22,09.
+- Test d'intégration : Docker Desktop a renvoyé une erreur 500 transitoire sur `compose up --wait` lors des deux premières exécutions (environnement, pas le code) ; le test passe en ≈ 275 s.
+- `tests/unit/cli.test.ts` : le test `--help` a un timeout de 20 s (le démarrage de `tsx` dépasse 5 s sous charge).
