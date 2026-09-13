@@ -1,0 +1,11 @@
+{
+  "feature": "catalogue_produits",
+  "plugin": "faktory-catalogue-produits",
+  "postType": "produit",
+  "block": "faktory/catalogue-produits",
+  "shortcode": "faktory_catalogue_produits",
+  "placements": {
+    "accueil": "<!-- wp:faktory/catalogue-produits {\"view\":\"featured\",\"limit\":4,\"filter\":false} /-->",
+    "nos-produits": "<!-- wp:faktory/catalogue-produits {\"view\":\"grid\",\"filter\":true} /-->"
+  }
+}

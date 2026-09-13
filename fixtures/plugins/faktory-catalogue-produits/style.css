@@ -1,0 +1,20 @@
+/* Faktory — Catalogue produits. Palette GeneratePress uniquement (var(--base…), var(--contrast…), var(--accent…)). */
+.faktory-catalogue-produits { width: 100%; }
+.faktory-catalogue-produits__filter ul { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; padding: 0; }
+.faktory-catalogue-produits__filter a { display: inline-block; padding: 6px 14px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--contrast) 20%, transparent); color: var(--contrast); text-decoration: none; }
+.faktory-catalogue-produits__filter a[aria-current="true"],
+.faktory-catalogue-produits__filter a:hover,
+.faktory-catalogue-produits__filter a:focus-visible { background: var(--accent); border-color: var(--accent); color: var(--base-3); }
+.faktory-catalogue-produits__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; }
+.faktory-catalogue-produits__card article { height: 100%; display: flex; flex-direction: column; background: var(--base-3); border-radius: 12px; overflow: hidden; }
+.faktory-catalogue-produits__media img { display: block; width: 100%; height: 200px; object-fit: cover; }
+.faktory-catalogue-produits__body { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 8px; }
+.faktory-catalogue-produits__title { margin: 0; font-size: 1.125rem; color: var(--contrast); }
+.faktory-catalogue-produits__text { margin: 0; color: var(--contrast-2); }
+.faktory-catalogue-produits__meta { margin: auto 0 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.faktory-catalogue-produits__price { font-weight: 700; color: var(--contrast); }
+.faktory-catalogue-produits__badge { font-size: 0.8125rem; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.faktory-catalogue-produits__empty { color: var(--contrast-2); }
+@media (max-width: 767px) {
+  .faktory-catalogue-produits__grid { grid-template-columns: 1fr; }
+}

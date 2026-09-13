@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "faktory/catalogue-produits",
+  "title": "Catalogue produits",
+  "category": "widgets",
+  "icon": "carrot",
+  "description": "Grille des produits du catalogue : vue grille filtrable par catégorie ou sélection mise en avant.",
+  "textdomain": "faktory-catalogue-produits",
+  "attributes": {
+    "view": { "type": "string", "default": "grid", "enum": ["grid", "featured"] },
+    "limit": { "type": "number", "default": 12 },
+    "filter": { "type": "boolean", "default": true },
+    "taxonomy": { "type": "string", "default": "" },
+    "term": { "type": "string", "default": "" }
+  },
+  "supports": { "html": false, "align": ["wide", "full"] },
+  "editorScript": "file:./index.js",
+  "style": "faktory-catalogue-produits",
+  "render": "file:./render.php"
+}
