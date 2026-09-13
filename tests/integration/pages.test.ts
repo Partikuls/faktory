@@ -8,20 +8,36 @@ import { runSite, destroySite, loadContext } from "../../src/pipeline.js";
 import { wpOk } from "../../src/wp.js";
 import { artifactPath, pageMarkupPath, pageTreePath } from "../../src/artifacts.js";
 import { deps as pagesDeps } from "../../src/stages/pages.js";
-import { featureMarker, formMarker, type PageTree } from "../../src/schemas/page-tree.js";
+import { featureMarker, formMarker, FEATURE_WRAPPER_ATTR, FORM_WRAPPER_ATTR, type GbNode, type PageTree } from "../../src/schemas/page-tree.js";
 import type { Page } from "../../src/schemas/site-spec.js";
 
-/** Stand-in for the agent: writes a minimal valid tree (h1 + markers) and returns it. */
+/** Stand-in for the agent: writes a minimal valid tree (h1 + wrapped markers) and returns it. */
 function stubTree(page: Page): PageTree {
-  return page.sections.map((s, i) => ({
-    type: "element" as const, tagName: "section", htmlAttributes: { id: `s-${i}` },
+  return page.sections.map((s, i): GbNode => ({
+    type: "element", tagName: "section", htmlAttributes: { id: `s-${i}` },
     styles: { backgroundColor: i % 2 ? "var(--base-2)" : "var(--base)", padding: "48px 24px", "@media (max-width:767px)": { padding: "32px 16px" } },
     innerBlocks: [
-      { type: "text" as const, tagName: i === 0 ? "h1" : "h2", content: s.heading, styles: { color: "var(--contrast)" } },
-      { type: "text" as const, tagName: "p", content: s.summary },
-      ...(s.type === "custom-query" && s.feature ? [{ type: "raw" as const, rawMarkup: featureMarker(s.feature) }] : []),
-      ...((s.type === "form" || s.type === "contact") && s.form ? [{ type: "raw" as const, rawMarkup: formMarker(s.form) }] : []),
-    ],
+      { type: "text", tagName: i === 0 ? "h1" : "h2", content: s.heading, styles: { color: "var(--contrast)" } },
+      { type: "text", tagName: "p", content: s.summary },
+      ...(s.type === "custom-query" && s.feature
+        ? [{
+            type: "element", tagName: "div", htmlAttributes: { [FEATURE_WRAPPER_ATTR]: s.feature },
+            innerBlocks: [
+              { type: "text", tagName: "p", content: "Exemple de carte" },
+              { type: "raw", rawMarkup: featureMarker(s.feature) },
+            ],
+          } satisfies GbNode]
+        : []),
+      ...((s.type === "form" || s.type === "contact") && s.form
+        ? [{
+            type: "element", tagName: "div", htmlAttributes: { [FORM_WRAPPER_ATTR]: s.form },
+            innerBlocks: [
+              { type: "raw", rawMarkup: formMarker(s.form) },
+              { type: "text", tagName: "p", content: "Le formulaire sera disponible ici." },
+            ],
+          } satisfies GbNode]
+        : []),
+    ] satisfies GbNode[],
   }));
 }
 
