@@ -1,4 +1,4 @@
-/** Run `fn` over `items` with at most `limit` in flight; results keep the input order and rejections are captured. */
+/** Run `fn` over `items` with at most `limit` in flight; results keep the input order and rejections are captured. `limit <= 0` is clamped to 1 worker. */
 export async function mapLimit<T, R>(
   items: readonly T[], limit: number, fn: (item: T, index: number) => Promise<R>,
 ): Promise<PromiseSettledResult<R>[]> {

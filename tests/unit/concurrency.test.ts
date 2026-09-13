@@ -26,4 +26,15 @@ describe("mapLimit", () => {
     expect(await mapLimit([], 3, async () => 1)).toEqual([]);
     expect((await mapLimit([1], 8, async (n) => n)).length).toBe(1);
   });
+  it("clamps limit <= 0 to a single worker instead of running nothing", async () => {
+    let inFlight = 0, peak = 0;
+    const r = await mapLimit([1, 2, 3], 0, async (n) => {
+      inFlight++; peak = Math.max(peak, inFlight);
+      await tick();
+      inFlight--;
+      return n;
+    });
+    expect(peak).toBe(1);
+    expect(r.map((x) => (x as PromiseFulfilledResult<number>).value)).toEqual([1, 2, 3]);
+  });
 });
