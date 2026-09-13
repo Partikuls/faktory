@@ -29,3 +29,5 @@ Uniquement l'objet JSON structuré demandé :
 - `summary` : une à deux phrases en français.
 - `issues` : un élément par défaut constaté, `severity` `major` (visible par tout visiteur) ou `minor`, `where` (section ou élément), `what` (le défaut), `action` `fixed` ou `left`.
 Un verdict `fixed` sans modification réelle du fichier est refusé, comme un verdict `ok` avec un défaut laissé.
+Règle simple : dès qu'un seul défaut est laissé (`action: "left"`), le verdict est `needs_human`, même si tu en as corrigé d'autres.
+`fixed` n'est possible que si tu as réellement réécrit `pages/<slug>.gb.json` avec `Write` pendant ce tour ; sinon réponds `ok` ou `needs_human`.

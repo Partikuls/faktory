@@ -71,9 +71,9 @@ export const qaStage: Stage = {
       }
       const hash = treeHash(ctx, t.slug)!;
       const prev = previous?.pages.find((p) => p.slug === t.slug);
-      if (prev?.reviewed && prev.verdict === "ok" && prev.treeHash === hash) {
+      if (prev?.reviewed && prev.treeHash === hash) {
         console.log(`  ✔ ${label(t)} checked, review reused (tree unchanged)`);
-        return { ...entry, reviewed: true, reused: true, treeHash: hash, verdict: "ok", summary: prev.summary };
+        return { ...entry, reviewed: true, reused: true, treeHash: hash, verdict: prev.verdict, summary: prev.summary, issues: prev.issues, costUsd: 0, rounds: 0 };
       }
       let issues: QaIssue[] = [], summary = "", rounds = 0, cost = 0, resume: string | undefined;
       for (let round = 1; round <= MAX_FIX_ROUNDS; round++) {

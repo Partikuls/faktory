@@ -150,7 +150,7 @@ describe("qa stage", () => {
     expect(msg).toContain("(4 ok, 0 fixed, 1 needs human); 1 remaining issue —");
     expect(readFileSync(qaReportMdPath(c), "utf8")).toContain("## /la-maison/ — à revoir");
   });
-  it("skips the review of a page whose tree hash and ok verdict are already in report.json", async () => {
+  it("skips the review of a page whose tree hash is unchanged since the last report, whatever its verdict", async () => {
     const c = await ctx();
     spies();
     await qaStage.run(c);
@@ -162,6 +162,21 @@ describe("qa stage", () => {
     expect(msg).toBe("qa: 9 urls checked; 5 reviewed (5 ok, 0 fixed, 0 needs human, 5 reused); 0 remaining issues — $0.00");
     const report = parseQaReport(JSON.parse(readFileSync(qaReportJsonPath(c), "utf8")));
     expect(report.pages.find((p) => p.slug === "accueil")).toMatchObject({ reviewed: true, reused: true, verdict: "ok", rounds: 0, costUsd: 0 });
+  });
+  it("reuses a needs_human page too, carrying its left issue forward at $0", async () => {
+    const c = await ctx();
+    spies({ plan: { "la-maison": ["needs_human"] } });
+    await qaStage.run(c);
+    vi.restoreAllMocks();
+    const s = spies();
+    const msg = await qaStage.run(c);
+    expect(s.review).not.toHaveBeenCalled();
+    expect(msg).toBe("qa: 9 urls checked; 5 reviewed (4 ok, 0 fixed, 1 needs human, 5 reused); 1 remaining issue — $0.00");
+    const report = parseQaReport(JSON.parse(readFileSync(qaReportJsonPath(c), "utf8")));
+    expect(report.pages.find((p) => p.slug === "la-maison")).toMatchObject({
+      reviewed: true, reused: true, verdict: "needs_human", rounds: 0, costUsd: 0,
+      issues: [{ severity: "major", where: "plugin", what: "grille vide", action: "left" }],
+    });
   });
   it("re-reviews a page whose tree changed since the last report", async () => {
     const c = await ctx();
