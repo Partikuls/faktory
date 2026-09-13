@@ -38,6 +38,7 @@ describe("renderQaReport", () => {
     expect(md).toContain("- [restant] (majeur) section hero — titre illisible");
     expect(md).toContain("Défauts automatiques : 2 h1 (attendu : 1)");
     expect(md).toContain("1 défaut restant");
+    expect(md).toContain("(0 ok, 0 corrigée, 1 à revoir), 1 défaut restant");
   });
   it("writeQaReport writes both files", async () => {
     const config = loadConfig(mkdtempSync(join(tmpdir(), "fk-qareport-")));

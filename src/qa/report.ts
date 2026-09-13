@@ -51,7 +51,7 @@ function pageSection(p: QaPage): string {
 /** Human report (spec « Verdict de l'agent et rapport »): French, one section per URL in report order, links relative to `qa/`. */
 export function renderQaReport(report: QaReport, siteName: string): string {
   const t = report.totals;
-  const summary = `${plural(t.urls, "URL contrôlée", "URL contrôlées")}, ${plural(t.reviewed, "page relue", "pages relues")} (${t.ok} ok, ${t.fixed} corrigée${t.fixed === 1 ? "" : "s"}, ${t.needsHuman} à revoir), ${plural(t.remainingIssues, "défaut restant", "défauts restants")} — $${report.costUsd.toFixed(2)}`;
+  const summary = `${plural(t.urls, "URL contrôlée", "URL contrôlées")}, ${plural(t.reviewed, "page relue", "pages relues")} (${t.ok} ok, ${plural(t.fixed, "corrigée", "corrigées")}, ${t.needsHuman} à revoir), ${plural(t.remainingIssues, "défaut restant", "défauts restants")} — $${report.costUsd.toFixed(2)}`;
   return [
     `# Rapport QA — ${siteName}`,
     "",
