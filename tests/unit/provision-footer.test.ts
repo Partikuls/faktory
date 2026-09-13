@@ -38,6 +38,33 @@ describe("footerTree", () => {
     const withHome = footerTree({ ...spec, menus: { ...spec.menus, footer: ["accueil", "contact"] } }, tokens, 2026) as Node[];
     expect(flat(withHome).find((n) => n.content === "Accueil")?.htmlAttributes?.href).toBe("/");
   });
+  it("skips placeholder phone/address instead of rendering an empty tel: link or the raw placeholder text", () => {
+    const hrefs = all.filter((n) => n.tagName === "a").map((n) => n.htmlAttributes?.href);
+    expect(hrefs.some((h) => h?.startsWith("tel:"))).toBe(false);
+    const text = all.map((n) => n.content ?? "").join("\n");
+    expect(text).not.toMatch(/à confirmer/i);
+  });
+  it("renders only the brand column (gridTemplateColumns 1fr) when the footer menu and contact are both empty", () => {
+    const bare = parseSiteSpec({
+      ...spec,
+      identity: { ...spec.identity, contact: {} },
+      menus: { ...spec.menus, footer: [] },
+    });
+    const tree = footerTree(bare, tokens, 2026) as Node[];
+    const grid = flat(tree).find((n) => n.styles?.gridTemplateColumns)!;
+    expect(grid.styles?.gridTemplateColumns).toBe("1fr");
+    expect(grid.innerBlocks).toHaveLength(1);
+    const text = flat(tree).map((n) => n.content ?? "").join("\n");
+    expect(text).not.toContain("Navigation");
+    expect(text).not.toContain("Contact");
+  });
+  it("HTML-escapes the brand name and copyright line", () => {
+    const amp = parseSiteSpec({ ...spec, identity: { ...spec.identity, name: "Pain & Co" } });
+    const tree = footerTree(amp, tokens, 2026) as Node[];
+    const text = flat(tree).map((n) => n.content ?? "").join("\n");
+    expect(text).toContain("Pain &amp; Co");
+    expect(text).not.toContain("Pain & Co");
+  });
 });
 
 describe("installFooter", () => {

@@ -42,8 +42,12 @@ export const provisionStage: Stage = {
       parts.push("no design-tokens.json: tokens/footer skipped");
     }
     if (spec && tokens) {
-      const id = await deps.installFooter(ctx, spec, tokens);
-      parts.push(`footer element #${id}`);
+      if (stack.missingVendor.includes("gp-premium")) {
+        parts.push("footer skipped: gp-premium zip missing");
+      } else {
+        const id = await deps.installFooter(ctx, spec, tokens);
+        parts.push(`footer element #${id}`);
+      }
     }
     return parts.join("; ");
   },

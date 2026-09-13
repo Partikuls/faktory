@@ -32,7 +32,14 @@ export function readJsonArtifact<T>(ctx: SiteContext, key: ArtifactKey, parse: (
     const hint = PRODUCER[key] ? ` — run the ${PRODUCER[key]} stage first (faktory run ${ctx.slug} --only ${PRODUCER[key]})` : "";
     throw new Error(`${ARTIFACTS[key]} not found in ${ctx.siteDir}${hint}`);
   }
-  return parse(JSON.parse(readFileSync(p, "utf8")));
+  let data: unknown;
+  try {
+    data = JSON.parse(readFileSync(p, "utf8"));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`${ARTIFACTS[key]} is not valid JSON: ${message}`);
+  }
+  return parse(data);
 }
 
 export function writeJsonArtifact(ctx: SiteContext, key: ArtifactKey, data: unknown): void {

@@ -6,7 +6,7 @@ WordPress AI software factory: `brief.md` in, GeneratePress/GenerateBlocks site 
 ```bash
 npm install
 npm run sync-skills                 # copies GP/GB + WP skills from ~/.claude/skills into plugin/skills
-cp docker/.env.example docker/.env  # optional license keys (not used yet — phase 2)
+cp docker/.env.example docker/.env  # optional license keys (not used yet)
 # drop gp-premium*.zip, generateblocks-pro*.zip, gravityforms*.zip, gravityformscli*.zip into docker/vendor/
 npm run faktory -- doctor           # add --agent to verify skill loading with a real query
 # no ANTHROPIC_API_KEY needed: the SDK reuses your Claude Code login (doctor --agent proves it, ~$0.10-0.20)
@@ -23,17 +23,21 @@ npm run faktory -- run boulangerie          # design → stops: open preview.htm
 npm run faktory -- approve boulangerie      # re-syncs design-tokens.json if you edited the markdown
 npm run faktory -- run boulangerie          # provision: WP + GP stack, identity, pages, menu, tokens, footer
 npm run faktory -- run boulangerie --only design --max-cost 10
+npm run faktory -- approve boulangerie --max-cost 10
+npm run faktory -- resync boulangerie       # re-syncs any checkpoint JSON whose .md you edited after approve (also --max-cost)
 npm run faktory -- destroy boulangerie
 npm run faktory -- doctor --agent
 ```
 Sites live in `sites/<slug>/` (gitignored). `faktory.json` holds stage status, port, admin credentials and cumulated cost.
 Site URL: `http://localhost:<port>` (ports start at 8100). Admin: `admin` / password in `faktory.json`.
 
+`faktory resync <slug>` is for edits made to `SITE-SPEC.md` or `design-system.md` *after* you already ran `approve` — `approve` only re-syncs once, at the checkpoint; a later hand edit is otherwise silently ignored until the next `run` or `resync`, which warns you when a `.md` is newer than its `.json`. Conversely, `run --only spec` (or `--only design`) regenerates that artifact from the brief with the agent and overwrites any hand edits to the `.md`/`.json`.
+
 ### Artifacts
 | File | Written by | Edit it? |
 |---|---|---|
-| `SITE-SPEC.md` / `site-spec.json` | spec stage | Edit the `.md`; `approve` re-extracts the JSON when the `.md` is newer |
-| `design-system.md` / `design-tokens.json` / `preview.html` | design stage | Edit the `.md` (tokens section included); `approve` re-extracts the JSON and re-renders the preview |
+| `SITE-SPEC.md` / `site-spec.json` | spec stage | Edit the `.md`; `approve` or `resync` re-extracts the JSON when the `.md` is newer |
+| `design-system.md` / `design-tokens.json` / `preview.html` | design stage | Edit the `.md` (tokens section included); `approve` or `resync` re-extracts the JSON and re-renders the preview |
 | `design/preview.gb.json`, `design/preview.gb.html` | design stage | Intermediate gb_build tree and markup |
 
 ### Cost

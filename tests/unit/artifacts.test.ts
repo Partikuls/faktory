@@ -24,6 +24,11 @@ describe("artifacts", () => {
     const c = ctx();
     expect(() => readJsonArtifact(c, "siteSpecJson", (u) => u)).toThrow(/site-spec.json not found.*run the spec stage/);
   });
+  it("throws a friendly error when a JSON artifact has a syntax error", () => {
+    const c = ctx();
+    writeFileSync(artifactPath(c, "siteSpecJson"), "{ not json");
+    expect(() => readJsonArtifact(c, "siteSpecJson", (u) => u)).toThrow(/site-spec.json is not valid JSON/);
+  });
   it("isStale is true only when the markdown is newer than the json by more than 1s", () => {
     const c = ctx();
     writeTextArtifact(c, "siteSpecMd", "# spec");

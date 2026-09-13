@@ -8,7 +8,7 @@ import { designSystemPrompt } from "../prompts.js";
 import { toJsonSchema } from "../schemas/json-schema.js";
 import { DesignTokensShape, parseDesignTokens } from "../schemas/design-tokens.js";
 import { parseSiteSpec, type SiteSpec } from "../schemas/site-spec.js";
-import { resyncFromMarkdown } from "../resync.js";
+import { resyncFromMarkdown, DESIGN_RESYNC } from "../resync.js";
 import { TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../tools/server.js";
 
 export const deps = { runAgent, gbBuild, gbPreview };
@@ -21,7 +21,7 @@ export function designUserPrompt(spec: SiteSpec): string {
     `Pages : ${spec.sitemap.map((p) => `${p.slug} [${p.kind}]`).join(", ")}.`,
     `Sections de la page d'accueil (\`${home.slug}\`) : ${home.sections.map((s) => `${s.type} « ${s.heading} »`).join(" ; ")}.`,
     "",
-    "Lis `site-spec.json` et `brief.md`, puis produis `design-system.md`, `design/preview.gb.json` → gb_build → gb_preview → `preview.html`, et termine par les tokens structurés.",
+    "Lis `site-spec.json` et `brief.md`, écris `design-system.md` et `design/preview.gb.json` (Faktory compile l'aperçu lui-même ; `gb_build`/`gb_preview` sont là pour vérifier ton arbre si tu le souhaites), puis termine par les tokens structurés.",
   ].join("\n");
 }
 
@@ -51,7 +51,7 @@ export const designStage: Stage = {
     return `design-system.md, design-tokens.json and preview.html written (open ${artifactPath(ctx, "previewHtml")}) — $${r.costUsd.toFixed(2)}`;
   },
   async onApprove(ctx) {
-    const t = await resyncFromMarkdown(ctx, { mdKey: "designSystemMd", jsonKey: "designTokensJson", shape: DesignTokensShape, parse: parseDesignTokens, what: "les design tokens" });
+    const t = await resyncFromMarkdown(ctx, DESIGN_RESYNC);
     if (!t) return undefined;
     if (hasArtifact(ctx, "previewMarkup")) await deps.gbPreview(ctx.config, artifactPath(ctx, "previewMarkup"), artifactPath(ctx, "previewHtml"), previewOptionsFromTokens(t));
     return "approved; design-tokens.json re-synced from edited design-system.md";

@@ -5,7 +5,7 @@ import { loadPrompt } from "../prompts.js";
 import { toJsonSchema } from "../schemas/json-schema.js";
 import { SiteSpecShape, parseSiteSpec } from "../schemas/site-spec.js";
 import { renderSiteSpecMarkdown } from "../render/site-spec-md.js";
-import { resyncFromMarkdown } from "../resync.js";
+import { resyncFromMarkdown, SPEC_RESYNC } from "../resync.js";
 
 export const deps = { runAgent };
 
@@ -27,7 +27,7 @@ export const specStage: Stage = {
     return `SITE-SPEC.md written: ${spec.sitemap.length} pages, ${spec.features.length} feature${spec.features.length === 1 ? "" : "s"}, ${spec.forms.length} forms — $${r.costUsd.toFixed(2)}`;
   },
   async onApprove(ctx) {
-    const s = await resyncFromMarkdown(ctx, { mdKey: "siteSpecMd", jsonKey: "siteSpecJson", shape: SiteSpecShape, parse: parseSiteSpec, what: "la spécification du site" });
+    const s = await resyncFromMarkdown(ctx, SPEC_RESYNC);
     return s ? `approved; site-spec.json re-synced from edited SITE-SPEC.md (${s.sitemap.length} pages)` : undefined;
   },
 };

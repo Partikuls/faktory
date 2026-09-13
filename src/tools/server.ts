@@ -26,13 +26,15 @@ const FORBIDDEN: string[][] = [
 
 function forbidden(args: string[]): string | undefined {
   if (args.some((a) => a === "--allow-root")) return "--allow-root is not allowed";
+  const flag = args.find((a) => /^--(exec|require|ssh|path|http)(=|$)/.test(a));
+  if (flag) return `${flag.split("=")[0]} is not allowed`;
   const positional = args.filter((a) => !a.startsWith("-"));
   for (const f of FORBIDDEN) if (f.every((p, i) => positional[i] === p)) return `wp ${f.join(" ")} is not allowed`;
   return undefined;
 }
 function clip(s: string): string { return s.length > MAX_OUT ? s.slice(0, MAX_OUT) + "\n[truncated]" : s; }
 
-/** Resolve a tool-supplied path against the site dir; absolute paths and `..` escapes are refused. (Same check as `isInside` in agent.ts, inlined: agent.ts imports this module.) */
+/** Resolve a tool-supplied path against the site dir; absolute paths inside the site dir are accepted, only escapes (`..`, or absolute paths outside it) are refused. (Same check as `isInside` in agent.ts, inlined: agent.ts imports this module.) */
 export function resolveSitePath(ctx: SiteContext, rel: string): string {
   const base = resolve(ctx.siteDir), abs = resolve(base, rel);
   if (abs !== base && !abs.startsWith(base + sep)) throw new Error(`Path "${rel}" must stay inside the site directory`);

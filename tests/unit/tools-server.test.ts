@@ -48,6 +48,19 @@ describe("wp tool", () => {
     const r = await wpToolHandler(ctx)({ args: ["db", "export"] });
     expect(r.isError).toBeFalsy();
   });
+  it("refuses --exec and --require global flags, without calling wp", async () => {
+    const spy = vi.spyOn(deps, "composeExec");
+    const exec = await wpToolHandler(ctx)({ args: ["--exec=echo 1;", "post", "list"] });
+    expect(exec.isError).toBe(true);
+    const req = await wpToolHandler(ctx)({ args: ["--require=/x.php", "post", "list"] });
+    expect(req.isError).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it("still allows --format=json", async () => {
+    vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "[]", stderr: "", code: 0 });
+    const r = await wpToolHandler(ctx)({ args: ["post", "list", "--format=json"] });
+    expect(r.isError).toBeFalsy();
+  });
   it("allows commands with a leading global flag and passes args through unchanged", async () => {
     const spy = vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "ok", stderr: "", code: 0 });
     const r = await wpToolHandler(ctx)({ args: ["--url=http://x", "post", "list"] });
@@ -76,6 +89,7 @@ describe("resolveSitePath", () => {
 });
 
 describe("gb tools", () => {
+  beforeEach(() => vi.restoreAllMocks());
   const tmpCtx = () => ({ ...ctx, siteDir: mkdtempSync(join(tmpdir(), "fk-tools-")) });
   it("exposes the tool names", () => {
     expect(TOOL_GB_BUILD).toBe("mcp__faktory__gb_build");
@@ -106,7 +120,7 @@ describe("gb tools", () => {
     expect(r.isError).toBe(true);
     expect(r.content[0].text).toMatch(/not found/);
   });
-  it.skipIf(!existsSync(gbScript(ctx.config, "gb_preview.py")))("gb_preview renders and injects the palette (python3)", async () => {
+  it.skipIf(!existsSync(gbScript(loadConfig(process.cwd()), "gb_preview.py")))("gb_preview renders and injects the palette (python3)", async () => {
     const c = { ...tmpCtx(), config: loadConfig(process.cwd()) };
     writeFileSync(join(c.siteDir, "m.html"), '<!-- wp:generateblocks/text {"uniqueId":"abcd1234","tagName":"p","css":".gb-text-abcd1234{color:var(\\u002d\\u002daccent)}"} -->\n<p class="gb-text gb-text-abcd1234">Hi</p>\n<!-- /wp:generateblocks/text -->\n');
     const r = await gbPreviewToolHandler(c)({ markup: "m.html", out: "preview.html", palette: { accent: "#123456" }, fonts: [{ family: "Fraunces", variants: "400,700" }], headingFont: "Fraunces" });

@@ -3,6 +3,9 @@ import type { SiteContext } from "./docker.js";
 import { runAgent } from "./agent.js";
 import { ARTIFACTS, isStale, writeJsonArtifact, type ArtifactKey } from "./artifacts.js";
 import { toJsonSchema } from "./schemas/json-schema.js";
+import { SiteSpecShape, parseSiteSpec, type SiteSpec } from "./schemas/site-spec.js";
+import { DesignTokensShape, parseDesignTokens, type DesignTokens } from "./schemas/design-tokens.js";
+import type { StageName } from "./state.js";
 
 export const deps = { runAgent };
 
@@ -13,6 +16,18 @@ export type ResyncOptions<T> = {
   parse: (u: unknown) => T;
   what: string;
 };
+
+/** Single source of truth for the `spec`/`design` re-sync configs, used by their `onApprove` and by `resyncSite`. */
+export const SPEC_RESYNC: ResyncOptions<SiteSpec> = { mdKey: "siteSpecMd", jsonKey: "siteSpecJson", shape: SiteSpecShape, parse: parseSiteSpec, what: "la spécification du site" };
+export const DESIGN_RESYNC: ResyncOptions<DesignTokens> = { mdKey: "designSystemMd", jsonKey: "designTokensJson", shape: DesignTokensShape, parse: parseDesignTokens, what: "les design tokens" };
+
+export type ResyncTarget = ResyncOptions<unknown> & { name: StageName };
+
+/** The checkpoint stages whose markdown can be hand-edited and re-synced to JSON (by `approve` or `resync`). */
+export const RESYNC_TARGETS: readonly ResyncTarget[] = [
+  { name: "spec", ...SPEC_RESYNC },
+  { name: "design", ...DESIGN_RESYNC },
+];
 
 /**
  * When the human-edited markdown is newer than its JSON twin, re-extract the JSON with a cheap

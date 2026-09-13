@@ -18,7 +18,7 @@ export function writeGuard(siteDir: string): HookCallback {
     if (pre.hook_event_name !== "PreToolUse" || !WRITE_TOOLS.has(pre.tool_name)) return {};
     const fp = (pre.tool_input as { file_path?: string; notebook_path?: string })?.file_path
       ?? (pre.tool_input as { notebook_path?: string })?.notebook_path;
-    if (fp && isInside(siteDir, fp)) return {};
+    if (fp && isInside(siteDir, resolve(siteDir, fp))) return {};
     return {
       hookSpecificOutput: {
         hookEventName: "PreToolUse",

@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadConfig } from "../../src/config.js";
 import { initSite, siteDir } from "../../src/workspace.js";
 import { readState, setStage, writeState } from "../../src/state.js";
-import { runSite, approveSite, destroySite, deps, type Stage } from "../../src/pipeline.js";
+import { runSite, approveSite, resyncSite, destroySite, loadContext, deps, type Stage } from "../../src/pipeline.js";
+import { artifactPath, writeJsonArtifact, writeTextArtifact } from "../../src/artifacts.js";
+import { deps as resyncDeps } from "../../src/resync.js";
 
 async function setup() {
   const config = loadConfig(mkdtempSync(join(tmpdir(), "fk-")));
@@ -55,6 +57,18 @@ describe("runSite", () => {
     writeState(dir, setStage(setStage(readState(dir), "spec", "done"), "design", "done"));
     await runSite(config, "pp", { from: "spec", stages: { spec: ok("spec", false, log), design: ok("design", false, log) } });
     expect(log).toEqual(["spec", "design"]);
+  });
+  it("warns before a stage starts when SITE-SPEC.md is newer than site-spec.json", async () => {
+    const config = await setup();
+    const ctx = loadContext(config, "pp");
+    writeTextArtifact(ctx, "siteSpecMd", "# spec");
+    writeJsonArtifact(ctx, "siteSpecJson", {});
+    const future = new Date(Date.now() + 5000);
+    utimesSync(artifactPath(ctx, "siteSpecMd"), future, future);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await runSite(config, "pp", { stages: { spec: ok("spec", true) } });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("SITE-SPEC.md is newer than site-spec.json"));
+    warn.mockRestore();
   });
 });
 
@@ -117,5 +131,56 @@ describe("cost budget", () => {
     const log: string[] = [];
     await runSite(config, "pp", { stages: { spec: ok("spec", false, log) } });
     expect(log).toEqual(["spec"]);
+  });
+  it("approveSite rejects with Cost budget reached and does not call onApprove", async () => {
+    const config = await setup();
+    const dir = siteDir(config, "pp");
+    const onApprove = vi.fn(async () => "resynced");
+    const spec: Stage = { name: "spec", checkpoint: true, run: async () => "ok", onApprove };
+    await runSite(config, "pp", { stages: { spec } });
+    writeState(dir, { ...readState(dir), costUsd: 40 });
+    await expect(approveSite(config, "pp", { stages: { spec } })).rejects.toThrow(/Cost budget reached \(\$40.00 >= \$40\)/);
+    expect(onApprove).not.toHaveBeenCalled();
+  });
+});
+
+describe("resyncSite", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  const spec = JSON.parse(readFileSync("fixtures/specs/boulangerie.site-spec.json", "utf8"));
+  const tokens = JSON.parse(readFileSync("fixtures/specs/boulangerie.design-tokens.json", "utf8"));
+
+  it("re-syncs only the stale targets, via each stage's onApprove", async () => {
+    const config = await setup();
+    const ctx = loadContext(config, "pp");
+    writeTextArtifact(ctx, "siteSpecMd", "# spec"); writeJsonArtifact(ctx, "siteSpecJson", spec);
+    writeTextArtifact(ctx, "designSystemMd", "# design"); writeJsonArtifact(ctx, "designTokensJson", tokens);
+    const future = new Date(Date.now() + 5000);
+    utimesSync(artifactPath(ctx, "siteSpecMd"), future, future); // only SITE-SPEC.md is stale
+    const run = vi.spyOn(resyncDeps, "runAgent").mockResolvedValue({ text: "", structured: spec, costUsd: 0.1, numTurns: 2 });
+    const resynced = await resyncSite(config, "pp");
+    expect(resynced).toEqual(["spec"]);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns an empty list and calls nothing when nothing is stale", async () => {
+    const config = await setup();
+    const ctx = loadContext(config, "pp");
+    writeTextArtifact(ctx, "siteSpecMd", "# spec"); writeJsonArtifact(ctx, "siteSpecJson", spec);
+    const run = vi.spyOn(resyncDeps, "runAgent");
+    expect(await resyncSite(config, "pp")).toEqual([]);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("rejects with Cost budget reached when the budget is already spent", async () => {
+    const config = await setup();
+    const dir = siteDir(config, "pp");
+    const ctx = loadContext(config, "pp");
+    writeTextArtifact(ctx, "siteSpecMd", "# spec"); writeJsonArtifact(ctx, "siteSpecJson", spec);
+    const future = new Date(Date.now() + 5000);
+    utimesSync(artifactPath(ctx, "siteSpecMd"), future, future);
+    writeState(dir, { ...readState(dir), costUsd: 40 });
+    const run = vi.spyOn(resyncDeps, "runAgent");
+    await expect(resyncSite(config, "pp")).rejects.toThrow(/Cost budget reached/);
+    expect(run).not.toHaveBeenCalled();
   });
 });

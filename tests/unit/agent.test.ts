@@ -28,6 +28,14 @@ describe("writeGuard", () => {
     const r = await call("Read", "/etc/passwd");
     expect(r).toEqual({});
   });
+  it("resolves a relative file_path against the site dir, not process.cwd()", async () => {
+    const r = await call("Write", "design-system.md");
+    expect(r).toEqual({});
+  });
+  it("denies a relative path that escapes the site dir", async () => {
+    const r = (await call("Write", "../x")) as { hookSpecificOutput?: { permissionDecision?: string } };
+    expect(r.hookSpecificOutput?.permissionDecision).toBe("deny");
+  });
 });
 
 describe("resolveModel / pluginPath", () => {

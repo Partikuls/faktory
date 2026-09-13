@@ -3,6 +3,8 @@ import type { FaktoryConfig } from "./config.js";
 import { composeDown, type SiteContext } from "./docker.js";
 import { STAGES, readState, writeState, setStage, firstIncompleteStage, awaitingStage, type SiteState, type StageName } from "./state.js";
 import { siteDir } from "./workspace.js";
+import { isStale } from "./artifacts.js";
+import { RESYNC_TARGETS } from "./resync.js";
 import { provisionStage } from "./stages/provision.js";
 import { specStage } from "./stages/spec.js";
 import { designStage } from "./stages/design.js";
@@ -31,6 +33,13 @@ function persist(ctx: SiteContext, next: SiteState): SiteState {
   return next;
 }
 
+/** Throws the standard budget message when the site has already spent its cap (shared by `run`, `approve` and `resync`). */
+export function assertBudget(config: FaktoryConfig, state: SiteState): void {
+  if (state.costUsd >= config.maxCostUsd) {
+    throw new Error(`Cost budget reached ($${state.costUsd.toFixed(2)} >= $${config.maxCostUsd}); raise maxCostUsd in faktory.config.json or pass --max-cost to continue`);
+  }
+}
+
 export async function runSite(
   config: FaktoryConfig, slug: string,
   opts: { from?: StageName; only?: StageName; stages?: Partial<Record<StageName, Stage>> } = {},
@@ -46,9 +55,9 @@ export async function runSite(
   for (const name of plan) {
     const stage = stages[name];
     if (!stage) { persist(ctx, setStage(ctx.state, name, "done", "skipped (not implemented)")); continue; }
-    if (ctx.state.costUsd >= config.maxCostUsd) {
-      throw new Error(`Cost budget reached ($${ctx.state.costUsd.toFixed(2)} >= $${config.maxCostUsd}); raise maxCostUsd in faktory.config.json or pass --max-cost to continue`);
-    }
+    assertBudget(config, ctx.state);
+    if (isStale(ctx, "siteSpecMd", "siteSpecJson")) console.warn(`⚠ SITE-SPEC.md is newer than site-spec.json — edits made after approve are not applied; run: faktory resync ${slug}`);
+    if (isStale(ctx, "designSystemMd", "designTokensJson")) console.warn(`⚠ design-system.md is newer than design-tokens.json — edits made after approve are not applied; run: faktory resync ${slug}`);
     persist(ctx, setStage(ctx.state, name, "running"));
     console.log(`▶ ${name}`);
     try {
@@ -70,9 +79,30 @@ export async function approveSite(config: FaktoryConfig, slug: string, opts: { s
   const ctx = loadContext(config, slug);
   const waiting = awaitingStage(ctx.state);
   if (!waiting) throw new Error(`Nothing awaits approval for "${slug}"`);
+  assertBudget(config, ctx.state);
   const stage = (opts.stages ?? registry)[waiting];
   const msg = stage?.onApprove ? await stage.onApprove(ctx) : undefined;
   return persist(ctx, setStage(ctx.state, waiting, "done", msg ?? "approved"));
+}
+
+/**
+ * Re-sync any checkpoint JSON whose markdown twin was hand-edited after the fact (including after `approve`),
+ * reusing each stage's own `onApprove` so the re-extraction and, for design, the preview re-render stay in one place.
+ * Returns the stage names that were re-synced (empty when nothing is stale).
+ */
+export async function resyncSite(config: FaktoryConfig, slug: string, opts: { stages?: Partial<Record<StageName, Stage>> } = {}): Promise<string[]> {
+  const ctx = loadContext(config, slug);
+  const stages = opts.stages ?? registry;
+  const resynced: string[] = [];
+  for (const target of RESYNC_TARGETS) {
+    if (!isStale(ctx, target.mdKey, target.jsonKey)) continue;
+    assertBudget(config, ctx.state);
+    const stage = stages[target.name];
+    if (!stage?.onApprove) continue;
+    await stage.onApprove(ctx);
+    resynced.push(target.name);
+  }
+  return resynced;
 }
 
 export async function destroySite(config: FaktoryConfig, slug: string, opts: { force?: boolean } = {}): Promise<void> {

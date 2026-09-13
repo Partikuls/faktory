@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "./config.js";
 import { initSite, listSites } from "./workspace.js";
-import { runSite, approveSite, destroySite, loadContext } from "./pipeline.js";
+import { runSite, approveSite, resyncSite, destroySite, loadContext } from "./pipeline.js";
 import { STAGES, type StageName } from "./state.js";
 import { run } from "./exec.js";
 import { runAgent, pluginPath, pluginSkillNames } from "./agent.js";
@@ -47,7 +47,14 @@ program.command("run <slug>").description("Run the pipeline from the first incom
 program.command("provision <slug>").description("Alias for run --only provision")
   .action(async (slug: string) => { await runSite(loadConfig(), slug, { only: "provision" }); });
 program.command("approve <slug>").description("Mark the awaiting checkpoint as approved (re-syncs JSON from an edited markdown when needed)")
-  .action(async (slug: string) => { const s = await approveSite(loadConfig(), slug); console.log(`Approved. Next: faktory run ${s.slug}`); });
+  .option("--max-cost <usd>", "Stop before approving once the cumulated cost reaches this amount (default: faktory.config.json maxCostUsd)")
+  .action(async (slug: string, opts: { maxCost?: string }) => { const s = await approveSite(withMaxCost(opts.maxCost), slug); console.log(`Approved. Next: faktory run ${s.slug}`); });
+program.command("resync <slug>").description("Re-sync any checkpoint JSON whose markdown twin was hand-edited after the fact (including after approve)")
+  .option("--max-cost <usd>", "Stop before re-syncing once the cumulated cost reaches this amount (default: faktory.config.json maxCostUsd)")
+  .action(async (slug: string, opts: { maxCost?: string }) => {
+    const resynced = await resyncSite(withMaxCost(opts.maxCost), slug);
+    console.log(resynced.length ? `Re-synced: ${resynced.join(", ")}` : "Nothing to re-sync.");
+  });
 program.command("destroy <slug>").description("Stop containers, drop volumes, delete workspace")
   .option("--yes", "Skip confirmation")
   .option("--force", "Delete the workspace even if docker compose down fails")

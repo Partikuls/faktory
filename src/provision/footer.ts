@@ -21,6 +21,12 @@ function columnTitle(label: string, step: (i: number) => number): Node {
   return text("p", label, { fontSize: "13px", letterSpacing: "0.08em", textTransform: "uppercase", opacity: "0.6", marginBottom: `${step(3)}px` });
 }
 
+/** Values the spec author left unfilled (e.g. `"[à confirmer]"`), or empty — never render these. */
+const isPlaceholder = (v?: string): boolean => !v || /à confirmer/i.test(v);
+
+const ESCAPE: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
+const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ESCAPE[c]!);
+
 /** Deterministic footer: brand + footer menu + contact, copyright bar. Colors only through GP palette variables. */
 export function footerTree(spec: SiteSpec, tokens: DesignTokens, year: number = new Date().getFullYear()): unknown[] {
   const sp = tokens.spacing;
@@ -30,35 +36,40 @@ export function footerTree(spec: SiteSpec, tokens: DesignTokens, year: number = 
   const pages = new Map(spec.sitemap.map((p) => [p.slug, p]));
 
   const brand: Node = { type: "element", tagName: "div", styles: {}, innerBlocks: [
-    text("p", `<strong>${id.name}</strong>`, { fontSize: "22px", marginBottom: `${step(2)}px` }),
-    text("p", id.tagline, { opacity: "0.75", maxWidth: "36ch", lineHeight: "1.5" }),
+    text("p", `<strong>${esc(id.name)}</strong>`, { fontSize: "22px", marginBottom: `${step(2)}px` }),
+    text("p", esc(id.tagline), { opacity: "0.75", maxWidth: "36ch", lineHeight: "1.5" }),
   ] };
 
-  const nav: Node = { type: "element", tagName: "nav", htmlAttributes: { "aria-label": "Pied de page" }, styles: {}, innerBlocks: [
+  const navLinks = spec.menus.footer.map((slug) => { const p = pages.get(slug); return link(p?.kind === "home" ? "/" : `/${slug}/`, esc(p?.title ?? slug)); });
+  const nav: Node | undefined = navLinks.length ? { type: "element", tagName: "nav", htmlAttributes: { "aria-label": "Pied de page" }, styles: {}, innerBlocks: [
     columnTitle("Navigation", step),
-    ...spec.menus.footer.map((slug) => { const p = pages.get(slug); return link(p?.kind === "home" ? "/" : `/${slug}/`, p?.title ?? slug); }),
-  ] };
+    ...navLinks,
+  ] } : undefined;
 
-  const contactLines: Node[] = [columnTitle("Contact", step)];
-  if (id.contact.address) contactLines.push(text("p", id.contact.address, { opacity: "0.85", marginBottom: `${step(1)}px` }));
-  if (id.contact.phone) contactLines.push(link(`tel:${id.contact.phone.replace(/[^+\d]/g, "")}`, id.contact.phone));
-  if (id.contact.email) contactLines.push(link(`mailto:${id.contact.email}`, id.contact.email));
-  for (const h of id.contact.hours ?? []) contactLines.push(text("p", h, { opacity: "0.85", fontSize: "15px" }));
-  const contact: Node = { type: "element", tagName: "div", styles: {}, innerBlocks: contactLines };
+  const contactLines: Node[] = [];
+  if (!isPlaceholder(id.contact.address)) contactLines.push(text("p", esc(id.contact.address!), { opacity: "0.85", marginBottom: `${step(1)}px` }));
+  const phoneDigits = id.contact.phone && !isPlaceholder(id.contact.phone) ? id.contact.phone.replace(/[^+\d]/g, "") : "";
+  if (phoneDigits) contactLines.push(link(`tel:${phoneDigits}`, esc(id.contact.phone!)));
+  if (!isPlaceholder(id.contact.email)) contactLines.push(link(`mailto:${id.contact.email}`, esc(id.contact.email!)));
+  for (const h of id.contact.hours ?? []) if (!isPlaceholder(h)) contactLines.push(text("p", esc(h), { opacity: "0.85", fontSize: "15px" }));
+  const contact: Node | undefined = contactLines.length ? { type: "element", tagName: "div", styles: {}, innerBlocks: [columnTitle("Contact", step), ...contactLines] } : undefined;
+
+  const columns = [brand, nav, contact].filter((c): c is Node => c !== undefined);
+  const gridTemplateColumns = columns.length <= 1 ? "1fr" : ["2fr", "1fr", "1.4fr"].slice(0, columns.length).join(" ");
 
   const grid: Node = { type: "element", tagName: "div", styles: {
     maxWidth: "var(--gb-container-width)", marginLeft: "auto", marginRight: "auto",
-    display: "grid", gridTemplateColumns: "2fr 1fr 1.4fr", gap: `${step(6)}px`,
+    display: "grid", gridTemplateColumns, gap: `${step(6)}px`,
     [MOBILE]: { gridTemplateColumns: "1fr", gap: `${step(5)}px` },
-  }, innerBlocks: [brand, nav, contact] };
+  }, innerBlocks: columns };
 
   const bar: Node = { type: "element", tagName: "div", styles: {
     maxWidth: "var(--gb-container-width)", marginLeft: "auto", marginRight: "auto", marginTop: `${step(6)}px`, paddingTop: `${step(4)}px`,
     borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", justifyContent: "space-between", gap: `${step(3)}px`, fontSize: "14px", opacity: "0.7",
     [MOBILE]: { flexDirection: "column" },
   }, innerBlocks: [
-    text("p", `© ${year} ${id.name}`),
-    text("p", id.location ? `${id.sector} — ${id.location}` : id.sector),
+    text("p", `© ${year} ${esc(id.name)}`),
+    text("p", id.location ? `${esc(id.sector)} — ${esc(id.location)}` : esc(id.sector)),
   ] };
 
   const footer: Node = { type: "element", tagName: "footer", htmlAttributes: { class: "site-footer" }, styles: {
