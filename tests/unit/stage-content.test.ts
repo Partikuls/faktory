@@ -55,7 +55,7 @@ describe("content stage", () => {
   it("is registered in the pipeline, without checkpoint, after pages", () => {
     expect(registry.content).toBe(contentStage);
     expect(contentStage.checkpoint).toBeFalsy();
-    expect(Object.keys(registry)).toEqual(["spec", "design", "provision", "pages", "plugins", "content"]);
+    expect(Object.keys(registry)).toEqual(["spec", "design", "provision", "pages", "plugins", "content", "qa"]);
   });
   it("needs site-spec.json", async () => {
     const config = loadConfig(mkdtempSync(join(tmpdir(), "fk-stcontent-")));
