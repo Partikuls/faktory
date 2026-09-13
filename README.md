@@ -2,6 +2,9 @@
 
 WordPress AI software factory: `brief.md` in, GeneratePress/GenerateBlocks site out.
 
+## Getting started
+New to Faktory? Follow [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md). It walks through the prerequisites, the one-time setup, writing a brief, the two approval checkpoints, the build, the QA report and the deliverable bundle, then how to re-run a stage and fix common errors. The sections below are the reference.
+
 ## Setup
 ```bash
 npm install
@@ -145,7 +148,7 @@ Acceptance criteria (design, « Critères d'acceptation v1 »), checked on `http
 What the QA report leaves to a person on this run (all 5 reviewed pages ended `needs_human`): placeholder images from placehold.co where the brief provides none (hero, map, product photos), opening hours shown as « Bientôt précisé » and a missing phone number (both unknown in the brief), the Gravity Forms submit button and fields in the plugin's default blue rather than the design system's accent, and headings rendered in the body font — Fraunces is loaded and used by a few blocks, but the design tokens are not applied to GeneratePress' global heading typography (a provision gap to fix in a later phase). One automated finding: the blog page has no `h1` (GeneratePress archive template).
 
 ## Stages
-spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Phase 3 implements `pages`. Phase 4 implements `plugins`, phase 5 `content`. Phase 6a implements `qa`, phase 6b `export`: every stage of the pipeline is implemented. Phase 7 ran the whole chain on a fresh site (see « End-to-end run ») and added the per-stage cost and duration to `faktory.json` plus `faktory status`.
+spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Phase 3 implements `pages`. Phase 4 implements `plugins`, phase 5 `content`. Phase 6a implements `qa`, phase 6b `export`: every stage of the pipeline is implemented. Phase 7 ran the whole chain on a fresh site (see « End-to-end run ») and added the per-stage cost and duration to `faktory.json` plus `faktory status`. Phase 8 is planned, not started: theme-wide styling from the tokens (header, menu, backgrounds, headings), a designed blog page, forms matching the design system, then the items deferred by phases 4–7 — see `docs/superpowers/specs/2026-09-14-faktory-phase8-design.md`.
 
 ## Tests
 ```bash
