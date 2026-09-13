@@ -99,8 +99,13 @@ export async function checkPage(
     const origin = new URL(url).origin;
     const consoleErrors: string[] = [], pageErrors: string[] = [], failedRequests: { url: string; status: number }[] = [];
     // Chromium logs its own "Failed to load resource: …" line to the console for every failed request;
-    // that's already captured in failedRequests, so only JS-authored console.error calls land here.
-    page.on("console", (m) => { if (m.type() === "error" && !m.text().startsWith("Failed to load resource:")) consoleErrors.push(m.text().slice(0, 300)); });
+    // for a same-origin resource that's already captured in failedRequests, so drop only that case —
+    // a cross-origin failure (e.g. a broken third-party image) has no other record and must stay.
+    page.on("console", (m) => {
+      if (m.type() !== "error") return;
+      if (m.text().startsWith("Failed to load resource:") && m.location().url.startsWith(origin)) return;
+      consoleErrors.push(m.text().slice(0, 300));
+    });
     page.on("pageerror", (e) => pageErrors.push(String(e.message ?? e).slice(0, 300)));
     page.on("requestfailed", (r) => { if (r.url().startsWith(origin)) failedRequests.push({ url: r.url(), status: 0 }); });
     // Chromium requests /favicon.ico on its own; a site without one is not a page defect.

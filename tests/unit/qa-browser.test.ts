@@ -7,11 +7,11 @@ import type { AddressInfo } from "node:net";
 import { chromiumInstalled, launchBrowser, linkCandidates, checkLinks, checkPage, type LinkCache } from "../../src/qa/browser.js";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
-const html = (origin: string) => `<!doctype html><html><head><style>.gb-element-ok{padding:1px}</style></head><body>
+const html = (origin: string, extraOrigin: string) => `<!doctype html><html><head><style>.gb-element-ok{padding:1px}</style></head><body>
 <h1>Un</h1><h1>Deux</h1>
 <div class="gb-element-ok gb-text-missing gb-container-x1 other">bloc</div>
 <style>.gb-container-x1{margin:0}</style>
-<img src="/missing.png" alt="cassée"><img src="/ok.png">
+<img src="/missing.png" alt="cassée"><img src="/ok.png"><img src="${extraOrigin}/ext.png" alt="ext">
 <a href="/dead">mort</a><a href="/">home</a><a href="/#top">ancre</a><a href="mailto:a@b.c">m</a><a href="tel:+33">t</a><a href="/wp-admin/">admin</a><a href="${origin}/ok/">ok</a><a href="https://example.com/">ext</a>
 <div style="width:2000px">large</div>
 <script>console.error("boom"); console.log("info"); setTimeout(() => { throw new Error("crash"); }, 0);</script>
@@ -32,18 +32,27 @@ describe("linkCandidates", () => {
 
 describe.skipIf(!chromiumInstalled())("checkPage against a local page (chromium)", () => {
   let server: Server; let origin = "";
+  let extraServer: Server; let extraOrigin = "";
   const dir = mkdtempSync(join(tmpdir(), "fk-qabrowser-"));
   beforeAll(async () => {
     server = createServer((req, res) => {
       const url = req.url ?? "/";
-      if (url === "/" || url === "/ok/") { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end(html(origin)); return; }
+      if (url === "/" || url === "/ok/") { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end(html(origin, extraOrigin)); return; }
       if (url === "/ok.png") { res.writeHead(200, { "content-type": "image/png" }); res.end(PNG); return; }
       res.writeHead(404, { "content-type": "text/plain" }); res.end("nope");
     });
+    // A second origin (different port) so a cross-origin resource failure (e.g. a broken third-party
+    // image) is distinguishable from a same-origin one already covered by failedRequests.
+    extraServer = createServer((_req, res) => { res.writeHead(404, { "content-type": "text/plain" }); res.end("nope"); });
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    await new Promise<void>((r) => extraServer.listen(0, "127.0.0.1", r));
     origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    extraOrigin = `http://127.0.0.1:${(extraServer.address() as AddressInfo).port}`;
   });
-  afterAll(async () => { await new Promise<void>((r) => server.close(() => r())); });
+  afterAll(async () => {
+    await new Promise<void>((r) => server.close(() => r()));
+    await new Promise<void>((r) => extraServer.close(() => r()));
+  });
 
   it("checkLinks reuses the cache across calls", async () => {
     const cache: LinkCache = new Map();
@@ -62,11 +71,17 @@ describe.skipIf(!chromiumInstalled())("checkPage against a local page (chromium)
       const { check, tiles } = await checkPage(browser, `${origin}/`, targets, new Map());
       expect(check.url).toBe(`${origin}/`);
       expect(check.status).toBe(200);
-      expect(check.consoleErrors).toEqual(["boom"]);
+      // "boom" is the page's own console.error; Chromium's own "Failed to load resource" line for the
+      // same-origin /missing.png is suppressed (already in failedRequests), but the one for the
+      // cross-origin ext.png survives — it has no other record.
+      expect(check.consoleErrors).toContain("boom");
+      const resourceErrors = check.consoleErrors.filter((m) => m.startsWith("Failed to load resource:"));
+      expect(resourceErrors).toHaveLength(1);
+      expect(check.consoleErrors).toHaveLength(2);
       expect(check.pageErrors.join(" ")).toContain("crash");
       expect(check.failedRequests).toEqual([{ url: `${origin}/missing.png`, status: 404 }]);
       expect(check.brokenLinks).toEqual([{ href: `${origin}/dead`, status: 404 }]);
-      expect(check.brokenImages).toEqual([`${origin}/missing.png`]);
+      expect(check.brokenImages).toEqual([`${origin}/missing.png`, `${extraOrigin}/ext.png`]);
       expect(check.missingAlt).toBe(1);
       expect(check.unstyledBlocks).toEqual(["gb-text-missing"]);
       expect(check.h1Count).toBe(2);
