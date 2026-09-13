@@ -30,6 +30,21 @@ describe("state", () => {
     expect(s.stages.spec.message).toBe("boom");
     expect(s.stages.spec.updatedAt).toBeTruthy();
   });
+  it("setStage stores optional cost and duration and drops them when not given again", () => {
+    let s = setStage(createState("demo", 8100, "pw"), "pages", "done", "5 pages", { costUsd: 6.16, durationMs: 512000 });
+    expect(s.stages.pages.costUsd).toBe(6.16);
+    expect(s.stages.pages.durationMs).toBe(512000);
+    s = setStage(s, "pages", "running");
+    expect(s.stages.pages.costUsd).toBeUndefined();
+    expect(s.stages.pages.durationMs).toBeUndefined();
+  });
+  it("round-trips cost and duration through faktory.json and accepts records without them", () => {
+    const dir = mkdtempSync(join(tmpdir(), "faktory-"));
+    const s = setStage(createState("demo", 8100, "pw"), "spec", "done", "ok", { costUsd: 0.5, durationMs: 1000 });
+    writeState(dir, s);
+    expect(readState(dir).stages.spec).toEqual({ status: "done", message: "ok", updatedAt: s.stages.spec.updatedAt, costUsd: 0.5, durationMs: 1000 });
+    expect(readState(dir).stages.design).toEqual({ status: "pending" });
+  });
   it("firstIncompleteStage skips done stages and stops at awaiting_approval", () => {
     let s = createState("demo", 8100, "pw");
     s = setStage(s, "spec", "done");

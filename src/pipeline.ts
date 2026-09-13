@@ -41,6 +41,8 @@ function persist(ctx: SiteContext, next: SiteState): SiteState {
   return next;
 }
 
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
+
 export async function runSite(
   config: FaktoryConfig, slug: string,
   opts: { from?: StageName; only?: StageName; stages?: Partial<Record<StageName, Stage>> } = {},
@@ -61,15 +63,18 @@ export async function runSite(
     if (isStale(ctx, "designSystemMd", "designTokensJson")) console.warn(`⚠ design-system.md is newer than design-tokens.json — edits made after approve are not applied; run: faktory resync ${slug}`);
     persist(ctx, setStage(ctx.state, name, "running"));
     console.log(`▶ ${name}`);
+    const startedAt = Date.now(), startCost = ctx.state.costUsd;
+    // Agent runs add their cost to ctx.state as they finish, so the stage's spend is the delta on ctx.state.
+    const measure = () => ({ costUsd: round4(ctx.state.costUsd - startCost), durationMs: Date.now() - startedAt });
     try {
       const msg = (await stage.run(ctx)) ?? undefined;
       const status = stage.checkpoint ? "awaiting_approval" : "done";
-      persist(ctx, setStage(ctx.state, name, status, msg ?? undefined));
+      persist(ctx, setStage(ctx.state, name, status, msg ?? undefined, measure()));
       console.log(`${stage.checkpoint ? "⏸" : "✔"} ${name}${msg ? ` — ${msg}` : ""}`);
       if (stage.checkpoint) { console.log(`Review the artifact, then: faktory approve ${slug} && faktory run ${slug}`); break; }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      persist(ctx, setStage(ctx.state, name, "failed", message));
+      persist(ctx, setStage(ctx.state, name, "failed", message, measure()));
       throw err;
     }
   }
@@ -82,8 +87,11 @@ export async function approveSite(config: FaktoryConfig, slug: string, opts: { s
   if (!waiting) throw new Error(`Nothing awaits approval for "${slug}"`);
   assertBudget(config, ctx.state);
   const stage = (opts.stages ?? registry)[waiting];
+  const prev = ctx.state.stages[waiting], startCost = ctx.state.costUsd;
   const msg = stage?.onApprove ? await stage.onApprove(ctx) : undefined;
-  return persist(ctx, setStage(ctx.state, waiting, "done", msg ?? "approved"));
+  // The run's duration is kept; a re-sync at approval time is charged to the checkpoint stage.
+  const costUsd = round4((prev.costUsd ?? 0) + (ctx.state.costUsd - startCost));
+  return persist(ctx, setStage(ctx.state, waiting, "done", msg ?? "approved", { costUsd, durationMs: prev.durationMs }));
 }
 
 /**
