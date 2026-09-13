@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames, addCost, remainingBudget } from "../../src/agent.js";
+import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames, addCost, remainingBudget, agentQueryOptions } from "../../src/agent.js";
 import { loadConfig } from "../../src/config.js";
 import { createState } from "../../src/state.js";
+import { createFaktoryServer, FAKTORY_SERVER } from "../../src/tools/server.js";
+import type { SiteContext } from "../../src/docker.js";
 
 describe("isInside", () => {
   it("accepts children and rejects escapes", () => {
@@ -77,6 +79,27 @@ describe("addCost", () => {
     const state = createState("d", 8100, "pw");
     const next = addCost(addCost(state, 0.1), 0.2);
     expect(next.costUsd).toBe(0.3);
+  });
+});
+
+describe("agentQueryOptions", () => {
+  const ctx: SiteContext = { config: loadConfig("/tmp/fk"), slug: "d", siteDir: "/tmp/fk/sites/d", state: createState("d", 8100, "pw") };
+  const server = createFaktoryServer(ctx);
+  it("builds the exact options passed to query()", () => {
+    const opts = agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: ["Read"] }, server);
+    expect(opts.strictMcpConfig).toBe(true);
+    expect(opts.settingSources).toEqual([]);
+    expect(opts.allowedTools?.at(-1)).toBe("Skill");
+    expect(opts.mcpServers).toEqual({ [FAKTORY_SERVER]: server });
+    expect(opts.maxTurns).toBe(60);
+    expect(opts.resume).toBeUndefined();
+  });
+  it("defaults maxTurns to 60 and honours an override", () => {
+    expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [] }, server).maxTurns).toBe(60);
+    expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], maxTurns: 10 }, server).maxTurns).toBe(10);
+  });
+  it("passes resume through", () => {
+    expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], resume: "s1" }, server).resume).toBe("s1");
   });
 });
 

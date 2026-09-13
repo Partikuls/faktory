@@ -1,5 +1,5 @@
 import { join, resolve, sep } from "node:path";
-import { query, type HookCallback, type PreToolUseHookInput } from "@anthropic-ai/claude-agent-sdk";
+import { query, type HookCallback, type Options, type PreToolUseHookInput } from "@anthropic-ai/claude-agent-sdk";
 import type { FaktoryConfig } from "./config.js";
 import type { SiteContext } from "./docker.js";
 import { writeState, type SiteState } from "./state.js";
@@ -51,6 +51,11 @@ export function addCost(state: SiteState, usd: number): SiteState {
   return { ...state, costUsd: Math.round((state.costUsd + usd) * 10000) / 10000 };
 }
 
+// Each agent run receives the *whole* remaining budget as its `maxBudgetUsd` cap (the SDK has no
+// notion of "N runs share this budget"). With N concurrent agents (see PAGES_CONCURRENCY in
+// src/stages/pages.ts) that means the site can overshoot `maxCostUsd` by up to (N-1) x one run's
+// cost before the next stage sees the overrun and stops. Proper per-run splitting is deferred to
+// phase 4.
 export function remainingBudget(ctx: SiteContext): number {
   return Math.max(0.05, Math.round((ctx.config.maxCostUsd - ctx.state.costUsd) * 100) / 100);
 }
@@ -66,6 +71,27 @@ export type AgentOptions = {
 };
 export type AgentRunner = (ctx: SiteContext, opts: AgentOptions) => Promise<AgentRun>;
 
+/** The exact `options` object `runAgent` passes to `query()`; extracted so it can be unit-tested without a live agent call. */
+export function agentQueryOptions(ctx: SiteContext, opts: AgentOptions, server: ReturnType<typeof createFaktoryServer>): Options {
+  return {
+    cwd: ctx.siteDir,
+    model: resolveModel(ctx.config, opts.stage, opts.model),
+    systemPrompt: opts.systemPrompt,
+    allowedTools: effectiveAllowedTools(opts.allowedTools),
+    settingSources: [],
+    skills: pluginSkillNames(),
+    plugins: [{ type: "local", path: pluginPath(ctx.config) }],
+    mcpServers: { [FAKTORY_SERVER]: server },
+    // only our in-process server: without this the CLI also loads the user's claude.ai connectors (~180 tools) into every agent
+    strictMcpConfig: true,
+    hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir)] }] },
+    maxTurns: opts.maxTurns ?? 60,
+    maxBudgetUsd: remainingBudget(ctx),
+    outputFormat: opts.outputFormat,
+    resume: opts.resume,
+  };
+}
+
 export async function runAgent(
   ctx: SiteContext,
   opts: AgentOptions,
@@ -75,29 +101,16 @@ export async function runAgent(
   const transcriptParts: string[] = [];
   for await (const message of query({
     prompt: opts.prompt,
-    options: {
-      cwd: ctx.siteDir,
-      model: resolveModel(ctx.config, opts.stage, opts.model),
-      systemPrompt: opts.systemPrompt,
-      allowedTools: effectiveAllowedTools(opts.allowedTools),
-      settingSources: [],
-      skills: pluginSkillNames(),
-      plugins: [{ type: "local", path: pluginPath(ctx.config) }],
-      mcpServers: { [FAKTORY_SERVER]: server },
-      // only our in-process server: without this the CLI also loads the user's claude.ai connectors (~180 tools) into every agent
-      strictMcpConfig: true,
-      hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir)] }] },
-      maxTurns: opts.maxTurns ?? 60,
-      maxBudgetUsd: remainingBudget(ctx),
-      outputFormat: opts.outputFormat,
-      resume: opts.resume,
-    },
+    options: agentQueryOptions(ctx, opts, server),
   })) {
     if (message.type === "assistant") {
       for (const block of message.message.content) {
-        if (block.type === "text" && block.text.trim()) {
-          console.log(`  [${opts.stage}] ${block.text.trim().split("\n")[0].slice(0, 160)}`);
-          transcriptParts.push(block.text.trim());
+        if (block.type === "text") {
+          const text = block.text.trim();
+          if (text) {
+            console.log(`  [${opts.stage}] ${text.split("\n")[0].slice(0, 160)}`);
+            transcriptParts.push(text);
+          }
         }
       }
     }
@@ -144,7 +157,14 @@ export async function runValidated<T>(
     error = err instanceof Error ? err.message : String(err);
   }
   console.warn(`↻ ${opts.stage}: output failed validation, retrying once — ${error.split("\n")[0].slice(0, 200)}`);
-  const second = await run(ctx, { ...opts, prompt: retryPrompt(error), resume: first.sessionId });
+  let second: AgentRun;
+  if (first.sessionId === undefined) {
+    // Nothing to resume: replay the full original prompt plus the error instead of just the error.
+    console.warn(`↻ ${opts.stage}: no session id to resume, retrying with the full prompt`);
+    second = await run(ctx, { ...opts, prompt: [opts.prompt, retryPrompt(error)].join("\n\n"), resume: undefined });
+  } else {
+    second = await run(ctx, { ...opts, prompt: retryPrompt(error), resume: first.sessionId });
+  }
   const costUsd = Math.round((first.costUsd + second.costUsd) * 10000) / 10000;
   try {
     return { value: await validate(second), costUsd, attempts: 2, run: second };

@@ -39,6 +39,18 @@ describe("runValidated", () => {
     const r = await runValidated(runner, ctx, opts, async () => 42);
     expect(r.value).toBe(42);
   });
+  it("retries with the full original prompt and no resume when the first run has no session id", async () => {
+    const first: AgentRun = { text: "", transcript: "", structured: { ok: false }, costUsd: 0.4, sessionId: undefined, numTurns: 2 };
+    const secondRun: AgentRun = { text: "", transcript: "", structured: { ok: true }, costUsd: 0.1, sessionId: undefined, numTurns: 2 };
+    const runner = vi.fn<AgentRunner>()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(secondRun);
+    const r = await runValidated(runner, ctx, opts, (x) => { if (!(x.structured as { ok: boolean }).ok) throw new Error("bad: needs x"); return "fine"; });
+    expect(r).toMatchObject({ value: "fine", attempts: 2, costUsd: 0.5 });
+    const secondCall = runner.mock.calls[1][1];
+    expect(secondCall.resume).toBeUndefined();
+    expect(secondCall.prompt).toBe([opts.prompt, retryPrompt("bad: needs x")].join("\n\n"));
+  });
 });
 
 describe("retryPrompt", () => {
