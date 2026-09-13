@@ -194,6 +194,7 @@ Fichiers réutilisés sans les modifier :
 5. **content** : GF import, Yoast meta, articles. Vérif : formulaire contact fonctionnel (soumission test), meta SEO présentes, articles listés.
 6. **qa + export** : Playwright tools, boucle refine, rapport, `dist/`. Vérif : `dist/` restauré dans un compose neuf → site identique.
 7. **E2E** : run complet sur le brief boulangerie, mesure coût/durée, doc `README.md`.
+8. **Finitions et différés** : habillage global du thème par les tokens (en-tête, menu, fonds, titres), page blog designée, formulaires à la charte, rapport des manques du brief, puis les reports des phases 4 à 7 (budget par agent, vraies images, soumission de formulaire, a11y, auto-approbation…). Détail et découpage : `2026-09-14-faktory-phase8-design.md`.
 
 Chaque phase suit TDD (vitest) : schémas et logique pure en unit, Docker/wp en integration `@docker`.
 
