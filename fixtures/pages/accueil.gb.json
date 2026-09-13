@@ -1,0 +1,94 @@
+[
+  {
+    "type": "element", "tagName": "section", "htmlAttributes": { "id": "hero", "aria-labelledby": "hero-title" },
+    "styles": { "backgroundColor": "var(--base)", "padding": "96px 24px", "@media (max-width:767px)": { "padding": "56px 16px" } },
+    "innerBlocks": [
+      { "type": "element", "tagName": "div", "styles": { "maxWidth": "var(--gb-container-width)", "marginLeft": "auto", "marginRight": "auto", "display": "grid", "gridTemplateColumns": "7fr 5fr", "gap": "64px", "alignItems": "center", "@media (max-width:767px)": { "gridTemplateColumns": "1fr", "gap": "32px" } },
+        "innerBlocks": [
+          { "type": "element", "tagName": "div", "styles": { "display": "flex", "flexDirection": "column", "gap": "24px", "alignItems": "flex-start" },
+            "innerBlocks": [
+              { "type": "text", "tagName": "p", "content": "Chantenay, Nantes · depuis 1987", "styles": { "fontSize": "14px", "letterSpacing": "0.08em", "textTransform": "uppercase", "color": "var(--accent-2)" } },
+              { "type": "text", "tagName": "h1", "content": "Le pain comme en 1987, le levain comme toujours", "htmlAttributes": { "id": "hero-title" }, "styles": { "fontSize": "52px", "lineHeight": "1.15", "color": "var(--contrast)", "@media (max-width:767px)": { "fontSize": "36px" } } },
+              { "type": "text", "tagName": "p", "content": "Pain au levain et pâtisseries artisanales, pétris et cuits chaque matin.", "styles": { "fontSize": "20px", "color": "var(--contrast-2)", "maxWidth": "48ch" } },
+              { "type": "text", "tagName": "a", "content": "Voir nos produits", "htmlAttributes": { "href": "/nos-produits/" }, "styles": { "display": "inline-block", "backgroundColor": "var(--accent)", "color": "var(--base-3)", "padding": "14px 28px", "borderRadius": "10px", "textDecoration": "none", "fontWeight": "600", "&:hover": { "backgroundColor": "var(--contrast)" }, "&:focus-visible": { "outline": "2px solid var(--accent-2)", "outlineOffset": "2px" } } }
+            ] },
+          { "type": "media", "htmlAttributes": { "src": "https://placehold.co/800x600", "alt": "Pains au levain sur la grille de la boulangerie" }, "styles": { "width": "100%", "height": "auto", "borderRadius": "10px" } }
+        ] }
+    ]
+  },
+  {
+    "type": "element", "tagName": "section", "htmlAttributes": { "id": "incontournables", "aria-labelledby": "incontournables-title" },
+    "styles": { "backgroundColor": "var(--base-2)", "padding": "96px 24px", "@media (max-width:767px)": { "padding": "56px 16px" } },
+    "innerBlocks": [
+      { "type": "element", "tagName": "div", "styles": { "maxWidth": "var(--gb-container-width)", "marginLeft": "auto", "marginRight": "auto" },
+        "innerBlocks": [
+          { "type": "text", "tagName": "h2", "content": "Nos incontournables", "htmlAttributes": { "id": "incontournables-title" }, "styles": { "fontSize": "36px", "marginBottom": "32px", "color": "var(--contrast)" } },
+          { "type": "element", "tagName": "div", "styles": { "display": "grid", "gridTemplateColumns": "repeat(3, 1fr)", "gap": "24px", "@media (max-width:767px)": { "gridTemplateColumns": "1fr" } },
+            "innerBlocks": [
+              { "type": "element", "tagName": "article", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "overflow": "hidden" }, "innerBlocks": [
+                { "type": "media", "htmlAttributes": { "src": "https://placehold.co/600x400", "alt": "Tourte de meule au levain" }, "styles": { "width": "100%", "height": "auto" } },
+                { "type": "element", "tagName": "div", "styles": { "padding": "24px" }, "innerBlocks": [
+                  { "type": "text", "tagName": "h3", "content": "Tourte de meule", "styles": { "fontSize": "26px", "marginBottom": "8px" } },
+                  { "type": "text", "tagName": "p", "content": "Levain naturel, farine T80, 24 h de fermentation.", "styles": { "color": "var(--contrast-2)" } }
+                ] }
+              ] },
+              { "type": "element", "tagName": "article", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "overflow": "hidden" }, "innerBlocks": [
+                { "type": "media", "htmlAttributes": { "src": "https://placehold.co/600x400", "alt": "Baguette tradition" }, "styles": { "width": "100%", "height": "auto" } },
+                { "type": "element", "tagName": "div", "styles": { "padding": "24px" }, "innerBlocks": [
+                  { "type": "text", "tagName": "h3", "content": "Baguette tradition", "styles": { "fontSize": "26px", "marginBottom": "8px" } },
+                  { "type": "text", "tagName": "p", "content": "Croûte fine, mie crème, cuite toute la journée.", "styles": { "color": "var(--contrast-2)" } }
+                ] }
+              ] },
+              { "type": "element", "tagName": "article", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "overflow": "hidden" }, "innerBlocks": [
+                { "type": "media", "htmlAttributes": { "src": "https://placehold.co/600x400", "alt": "Tarte aux fruits de saison" }, "styles": { "width": "100%", "height": "auto" } },
+                { "type": "element", "tagName": "div", "styles": { "padding": "24px" }, "innerBlocks": [
+                  { "type": "text", "tagName": "h3", "content": "Tarte de saison", "styles": { "fontSize": "26px", "marginBottom": "8px" } },
+                  { "type": "text", "tagName": "p", "content": "Fruits du marché, pâte sablée maison.", "styles": { "color": "var(--contrast-2)" } }
+                ] }
+              ] }
+            ] },
+          { "type": "raw", "rawMarkup": "<!-- faktory:feature:catalogue_produits -->" }
+        ] }
+    ]
+  },
+  {
+    "type": "element", "tagName": "section", "htmlAttributes": { "id": "horaires", "aria-labelledby": "horaires-title" },
+    "styles": { "backgroundColor": "var(--base)", "padding": "96px 24px", "@media (max-width:767px)": { "padding": "56px 16px" } },
+    "innerBlocks": [
+      { "type": "element", "tagName": "div", "styles": { "maxWidth": "var(--gb-container-width)", "marginLeft": "auto", "marginRight": "auto", "display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "48px", "@media (max-width:767px)": { "gridTemplateColumns": "1fr" } },
+        "innerBlocks": [
+          { "type": "element", "tagName": "div", "innerBlocks": [
+            { "type": "text", "tagName": "h2", "content": "Horaires & accès", "htmlAttributes": { "id": "horaires-title" }, "styles": { "fontSize": "36px", "marginBottom": "16px" } },
+            { "type": "text", "tagName": "p", "content": "Chantenay, Nantes. Le fournil ouvre dès 7h.", "styles": { "color": "var(--contrast-2)" } }
+          ] },
+          { "type": "element", "tagName": "div", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "padding": "32px", "display": "flex", "flexDirection": "column", "gap": "8px" }, "innerBlocks": [
+            { "type": "text", "tagName": "p", "content": "Mardi – Vendredi : 7h00 – 19h30" },
+            { "type": "text", "tagName": "p", "content": "Samedi : 7h00 – 19h00" },
+            { "type": "text", "tagName": "p", "content": "Dimanche : 7h00 – 13h00" },
+            { "type": "text", "tagName": "p", "content": "Fermé le lundi", "styles": { "color": "var(--contrast-2)" } }
+          ] }
+        ] }
+    ]
+  },
+  {
+    "type": "element", "tagName": "section", "htmlAttributes": { "id": "maison", "aria-labelledby": "maison-title" },
+    "styles": { "backgroundColor": "var(--base-2)", "padding": "96px 24px", "@media (max-width:767px)": { "padding": "56px 16px" } },
+    "innerBlocks": [
+      { "type": "element", "tagName": "div", "styles": { "maxWidth": "72ch", "marginLeft": "auto", "marginRight": "auto" },
+        "innerBlocks": [
+          { "type": "text", "tagName": "h2", "content": "Une maison, deux générations", "htmlAttributes": { "id": "maison-title" }, "styles": { "fontSize": "36px", "marginBottom": "16px" } },
+          { "type": "text", "tagName": "p", "content": "Fondée en 1987, la boulangerie est aujourd'hui menée par la deuxième génération, avec le même levain.", "styles": { "fontSize": "18px", "lineHeight": "1.6" } },
+          { "type": "text", "tagName": "a", "content": "Découvrir la maison", "htmlAttributes": { "href": "/la-maison/" }, "styles": { "color": "var(--accent)", "fontWeight": "600", "&:hover": { "textDecoration": "underline" } } }
+        ] }
+    ]
+  },
+  {
+    "type": "element", "tagName": "section", "htmlAttributes": { "id": "cta", "aria-labelledby": "cta-title" },
+    "styles": { "backgroundColor": "var(--accent)", "color": "var(--base-3)", "padding": "72px 24px", "textAlign": "center", "@media (max-width:767px)": { "padding": "48px 16px" } },
+    "innerBlocks": [
+      { "type": "text", "tagName": "h2", "content": "Un événement à fêter ?", "htmlAttributes": { "id": "cta-title" }, "styles": { "fontSize": "36px", "marginBottom": "16px", "color": "var(--base-3)" } },
+      { "type": "text", "tagName": "p", "content": "Pièces montées, brioches et buffets sucrés sur commande.", "styles": { "marginBottom": "24px" } },
+      { "type": "text", "tagName": "a", "content": "Demander un devis", "htmlAttributes": { "href": "/commandes-evenements/" }, "styles": { "display": "inline-block", "backgroundColor": "var(--base-3)", "color": "var(--contrast)", "padding": "14px 28px", "borderRadius": "10px", "textDecoration": "none", "fontWeight": "600", "&:hover": { "backgroundColor": "var(--base-2)" } } }
+    ]
+  }
+]
