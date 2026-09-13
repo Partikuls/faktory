@@ -35,4 +35,8 @@ describe("prompts", () => {
     expect(p).toContain("data-faktory-plugin");
     for (const c of ["eval(", "shell_exec(", "$wpdb->query(", "base64_decode(", "unserialize("]) expect(p).toContain(c);
   });
+  it("loads the content prompt with its key rules", () => {
+    const p = loadPrompt("content");
+    for (const s of ["brief.md", "SITE-SPEC.md", "700 à 900 mots", "[à confirmer]", "<strong>", "paragraphe d'accroche"]) expect(p).toContain(s);
+  });
 });
