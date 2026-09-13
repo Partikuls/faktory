@@ -96,8 +96,8 @@
         { "key": "nom", "label": "Nom", "type": "text", "required": true },
         { "key": "email", "label": "Email", "type": "email", "required": true },
         { "key": "telephone", "label": "Téléphone", "type": "phone", "required": true },
-        { "key": "date", "label": "Date de l'événement", "type": "date", "required": true },
-        { "key": "personnes", "label": "Nombre de personnes", "type": "number", "required": true },
+        { "key": "date_evenement", "label": "Date de l'événement", "type": "date", "required": true },
+        { "key": "nombre_personnes", "label": "Nombre de personnes", "type": "number", "required": true },
         { "key": "message", "label": "Votre projet", "type": "textarea", "required": false }
       ]
     },

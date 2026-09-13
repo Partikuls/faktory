@@ -61,6 +61,8 @@ export const Form = z.object({
   })).min(1),
 });
 
+export type Form = z.infer<typeof Form>;
+
 export const SiteSpecShape = z.object({
   identity: z.object({
     name: z.string(),
