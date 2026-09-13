@@ -6,11 +6,11 @@ import { mapLimit } from "../concurrency.js";
 import { ensurePages } from "../provision/pages.js";
 import { generatePageTree, readPageTree } from "../pages/generate.js";
 import { compilePage, publishPage } from "../pages/publish.js";
-import { applyPlacements, pluginPlacements, readPluginManifests } from "../pages/placements.js";
-import { assertRendered } from "../pages/render-check.js";
+import { applyPlacements, pluginPlacements, formPlacements, readPluginManifests, readFormsManifest } from "../pages/placements.js";
+import { assertRendered, assertFormRendered } from "../pages/render-check.js";
 import { parseSiteSpec, type Page } from "../schemas/site-spec.js";
 import { parseDesignTokens } from "../schemas/design-tokens.js";
-import type { PageTree } from "../schemas/page-tree.js";
+import { FEATURE_WRAPPER_ATTR, FORM_WRAPPER_ATTR, type PageTree } from "../schemas/page-tree.js";
 
 export const deps = { ensurePages, generatePageTree, compilePage, publishPage };
 // Each of these concurrent agents gets the whole remaining budget as its own maxBudgetUsd cap
@@ -29,7 +29,9 @@ export const pagesStage: Stage = {
     readJsonArtifact(ctx, "designTokensJson", parseDesignTokens);
     if (!hasArtifact(ctx, "designSystemMd")) throw new Error(`design-system.md not found in ${ctx.siteDir} — run the design stage first (faktory run ${ctx.slug} --only design)`);
     const manifests = readPluginManifests(ctx);
+    const forms = readFormsManifest(ctx);
     const applied = new Set<string>();
+    const formsApplied = new Set<string>();
 
     const ids = await deps.ensurePages(ctx, spec);
     const home = spec.sitemap.find((p) => p.kind === "home")!; // SiteSpec guarantees exactly one
@@ -48,14 +50,18 @@ export const pagesStage: Stage = {
         const g = await deps.generatePageTree(ctx, spec, page, { homeSlug: page.kind === "home" ? undefined : home.slug });
         tree = g.tree; cost += g.costUsd; generated.push(page.slug);
       }
-      const a = applyPlacements(tree, pluginPlacements(manifests, page.slug));
-      const features = a.applied.map((p) => p.id);
+      const formPl = formPlacements(forms, page);
+      const a = applyPlacements(tree, [...pluginPlacements(manifests, page.slug), ...formPl]);
+      const features = a.applied.filter((p) => p.attr === FEATURE_WRAPPER_ATTR).map((p) => p.id);
+      const appliedForms = a.applied.filter((p) => p.attr === FORM_WRAPPER_ATTR).map((p) => p.id);
       features.forEach((id) => applied.add(id));
+      appliedForms.forEach((id) => formsApplied.add(id));
       const markup = await deps.compilePage(ctx, page.slug, a.tree);
       await deps.publishPage(ctx, ids[page.slug], markup);
-      // Fresh-site order (provision → plugins → pages): the plugins stage had no tree to insert the block
-      // into, so this is the only place the render contract of every applied plugin is checked.
+      // Fresh-site order (provision → plugins → pages → content): the plugins/content stages had no tree to
+      // insert into, so this is where the render contract of every applied plugin and form is checked.
       for (const id of features) await assertRendered(ctx, page, id);
+      for (const id of appliedForms) await assertFormRendered(ctx, page, forms[id].gfId);
       console.log(`  ✔ ${page.kind === "home" ? "/" : `/${page.slug}/`} published`);
     };
 
@@ -84,6 +90,7 @@ export const pagesStage: Stage = {
     }
     const blog = skipped.length ? `; blog skipped (${skipped.join(", ")})` : "";
     const plugins = applied.size ? `; plugins applied (${Array.from(applied).sort().join(", ")})` : "";
-    return `${pages.length} pages published (${pages.map((p) => p.slug).join(", ")}); ${generated.length} generated, ${reused.length} reused${blog}${plugins} — $${cost.toFixed(2)}`;
+    const formsMsg = formsApplied.size ? `; forms applied (${Array.from(formsApplied).sort().join(", ")})` : "";
+    return `${pages.length} pages published (${pages.map((p) => p.slug).join(", ")}); ${generated.length} generated, ${reused.length} reused${blog}${plugins}${formsMsg} — $${cost.toFixed(2)}`;
   },
 };

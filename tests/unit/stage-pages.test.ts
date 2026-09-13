@@ -7,7 +7,8 @@ import { initSite } from "../../src/workspace.js";
 import { loadContext, registry } from "../../src/pipeline.js";
 import { artifactPath, pageTreePath, writeJsonArtifact } from "../../src/artifacts.js";
 import { parseSiteSpec, type Page } from "../../src/schemas/site-spec.js";
-import { featureMarker, formMarker, type PageTree } from "../../src/schemas/page-tree.js";
+import { featureMarker, formMarker, FORM_WRAPPER_ATTR, type PageTree } from "../../src/schemas/page-tree.js";
+import { gfPlacement } from "../../src/schemas/forms-manifest.js";
 import { pagesStage, deps, PAGES_CONCURRENCY } from "../../src/stages/pages.js";
 import { deps as renderDeps } from "../../src/pages/render-check.js";
 
@@ -23,7 +24,10 @@ function stubTree(page: Page): PageTree {
     innerBlocks: [
       { type: "text" as const, tagName: i === 0 ? "h1" : "h2", content: s.heading },
       ...(s.type === "custom-query" && s.feature ? [{ type: "raw" as const, rawMarkup: featureMarker(s.feature) }] : []),
-      ...((s.type === "form" || s.type === "contact") && s.form ? [{ type: "raw" as const, rawMarkup: formMarker(s.form) }] : []),
+      ...((s.type === "form" || s.type === "contact") && s.form && !page.sections.slice(0, i).some((x) => x.form === s.form)
+        ? [{ type: "element" as const, tagName: "div", htmlAttributes: { [FORM_WRAPPER_ATTR]: s.form }, innerBlocks: [
+            { type: "raw" as const, rawMarkup: formMarker(s.form) }, { type: "text" as const, tagName: "p", content: "Le formulaire sera disponible ici." } ] }]
+        : []),
     ],
   }));
 }
@@ -180,5 +184,22 @@ describe("pages stage", () => {
     const s = spies();
     await expect(pagesStage.run(c)).rejects.toThrow(/plugins\/x.json is not valid JSON/);
     expect(s.gen).not.toHaveBeenCalled();
+  });
+  it("applies content/forms.json when present and checks the Gravity Forms wrapper", async () => {
+    const c = await ctx();
+    writeFileSync(join(c.siteDir, "content/forms.json"), JSON.stringify({ devis_evenement: { gfId: 2, placement: gfPlacement(2) }, contact: { gfId: 1, placement: gfPlacement(1) } }));
+    const s = spies({ html: '<div data-faktory-plugin="catalogue_produits"></div><div id="gform_wrapper_1"></div><div id="gform_wrapper_2"></div>' });
+    const msg = await pagesStage.run(c);
+    const contactTree = s.compile.mock.calls.find((k: any) => k[1] === "contact")![2] as PageTree;
+    expect(JSON.stringify(contactTree)).toContain('gravityforms/form');
+    expect(JSON.stringify(contactTree)).not.toContain(FORM_WRAPPER_ATTR);
+    expect(s.fetchText).toHaveBeenCalledWith(`http://localhost:${c.state.port}/contact/`);
+    expect(msg).toMatch(/; forms applied \(contact, devis_evenement\) — \$5\.00$/);
+  });
+  it("fails a page whose applied form does not render", async () => {
+    const c = await ctx();
+    writeFileSync(join(c.siteDir, "content/forms.json"), JSON.stringify({ contact: { gfId: 1, placement: gfPlacement(1) } }));
+    spies({ html: "<html>no form</html>" });
+    await expect(pagesStage.run(c)).rejects.toThrow(/1 page\(s\) failed: contact/);
   });
 });
