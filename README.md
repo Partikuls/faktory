@@ -99,6 +99,8 @@ uninstall.php                # WP_UNINSTALL_PLUGIN guard, deletes posts/terms/me
 `export` is deterministic ($0) and rewrites `dist/` every run: `db.sql` is `wp search-replace http://localhost:<port> https://SITE_URL_PLACEHOLDER --all-tables-with-prefix --export` plus a pass on the JSON-escaped form Yoast stores, verified to contain no local URL; `wp-content.tar.gz` holds plugins, themes (without the bundled `twenty*`), uploads and languages, verified to contain the parent and child themes, GenerateBlocks and every custom plugin; `docker-compose.prod.yml` + `.env.example` describe the production stack (no `WP_DEBUG`); `README.md` (French) is the restore runbook — compose up, `wp db import`, both `search-replace` forms to the real URL, Yoast reindex, rewrite flush, admin password, then SMTP, licence keys and WP Umbrella; `MANIFEST.json` records versions, pages, custom plugins, forms, articles, the QA summary, the cumulated cost and file sizes. `faktory export <slug>` is an alias of `run --only export`. The integration test restores `dist/` into a fresh stack from the exported compose file.
 
 ### Cost
+The reference measurement is the [end-to-end run](#end-to-end-run): **$16.70 and 28m 45s of stage time for the whole boulangerie site** on 2026-09-13. The per-stage figures below were measured earlier, stage by stage, on the reference `boulangerie` site, partly with reuse.
+
 `maxCostUsd` in `faktory.config.json` (default 40) caps the cumulated cost of a site; `run --max-cost <usd>` overrides it for one invocation. The SDK also receives the remaining budget as `maxBudgetUsd`. Measured on the boulangerie brief: spec ≈ $0.52 (+ ≈$0.31 for a re-sync triggered by editing `SITE-SPEC.md`), design ≈ $0.90–$1.41 per attempt, provision ≈ $0 (no LLM calls); cumulative cost through a completed provision was $4.34 (including ≈$2.3 spent on two earlier failed design attempts before the design stage was fixed to compile the preview itself). The `pages` stage cost $4.82 for the 5 generated pages (accueil, nos-produits, commandes-evenements, la-maison, contact; blog skipped), ≈$0.96 per page with 0 retries; cumulative cost after `pages` was $9.17. That $4.82 / ≈$0.96-per-page run was measured while the `gb_build`/`gb_preview` MCP tools were unavailable to the agent (it wrote the tree blind, without self-checking it); with the agent's `gb_build` self-check active, measured pages cost ≈ $1.17 per page (2 pages, $2.35). The phase 4 re-run of the same 5 pages (trees deleted, wrapper convention, `gb_build` self-check active) cost **$6.16, ≈ $1.23 per page, 0 retries**.
 
 The `plugins` stage cost **≈ $1.44 for one feature** — measured on the boulangerie `produits` feature (CPT `produit`, 5 fields, 1 taxonomy, 2 pages): one agent, 0 retries, 12 plugin files, 5 seeded entries. Cumulative site cost went $12.43 → $18.59 after the `pages` re-run → **$20.03 after `plugins`**, against a `maxCostUsd` of 40. A reused plugin (manifest + plugin dir already there) costs $0: the stage only re-verifies and re-integrates.
@@ -111,8 +113,39 @@ Every agent stage validates its output (zod + file checks) and, on failure, resu
 
 `export` is $0; measured bundle on boulangerie: db.sql 2.3 MB, wp-content.tar.gz 16 MB.
 
+## End-to-end run
+Measured on 2026-09-13 (phase 7) on a fresh site, `boulangerie-e2e`, created from `fixtures/briefs/boulangerie.md` with nothing copied from the reference `boulangerie` site, the two checkpoints approved without editing `SITE-SPEC.md` or `design-system.md`, and no other intervention:
+
+```bash
+npm run faktory -- init boulangerie-e2e --brief fixtures/briefs/boulangerie.md
+npm run faktory -- run boulangerie-e2e        # spec ⏸
+npm run faktory -- approve boulangerie-e2e
+npm run faktory -- run boulangerie-e2e        # design ⏸
+npm run faktory -- approve boulangerie-e2e
+npm run faktory -- run boulangerie-e2e        # provision → plugins → pages → content → qa → export
+npm run faktory -- status boulangerie-e2e
+```
+
+| Stage | Cost | Duration | What it produced |
+|---|---|---|---|
+| spec | $0.39 | 1m 06s | 6 pages, 1 feature (`catalogue_produits`), 2 forms, 5 article briefs |
+| design | $1.15 | 3m 35s | tokens (Fraunces / Figtree, sage green accent), preview |
+| provision | $0.00 | 1m 17s | fresh install: WP + GP/GB/Premium/Pro/GF/Yoast, child theme, 6 pages, menu, footer element |
+| plugins | $1.56 | 4m 16s | `faktory-catalogue-produits` (12 files, PHPStan ok, 5 seeded entries), 0 retries |
+| pages | $5.74 | 8m 48s | 5 pages generated (≈ $1.15 per page), 0 retries; blog page left to GeneratePress |
+| content | $1.93 | 3m 04s | 2 Gravity Forms forms, Yoast meta on 6 pages, 5 articles (≈ $0.39 each), 0 retries |
+| qa | $5.92 | 6m 31s | 11 URLs checked, 5 pages reviewed in 1–2 rounds, 7 issues fixed, 16 left `needs_human` |
+| export | $0.00 | 9s | `dist/`: db.sql 1.4 MB, wp-content.tar.gz 16 MB, compose, README, MANIFEST |
+| **total** | **$16.70** | **28m 45s** | wall clock from `init` to `export` done: 29m 55s, including the two approvals |
+
+Cost is 42 % of the default `maxCostUsd` of 40. The stage durations come from `faktory.json` (`durationMs`, approval time excluded); the provision figure is a few seconds short of a cold start because the stack was already coming up when that stage was (re)started — see the phase 7 design addendum. Three of the five QA review agents returned a verdict the validator rejected once (verdict/issue mismatch) and were resumed with the error; every retry validated, and their cost is included above.
+
+Acceptance criteria (design, « Critères d'acceptation v1 »), checked on `http://localhost:8100` after the run: 6 pages served with GenerateBlocks inline CSS (39–98 `gb-element-` classes on the 5 generated pages, 9 on the blog page), header, footer and the primary menu on every page, the `catalogue_produits` block rendered on the home and products pages (`data-faktory-plugin`), Gravity Forms forms #1 and #2 rendered on `/commandes-evenements/` and `/contact/`, a Yoast `<title>` and meta description on every page, 5 published articles listed on `/actualites/`; `dist/` restored into a fresh stack from `dist/docker-compose.prod.yml` on another port following `dist/README.md` (both `search-replace` forms, 93 + 5 replacements) served the same home, products, contact, blog and article pages with the same block counts, the plugin block, the form and no local URL left.
+
+What the QA report leaves to a person on this run (all 5 reviewed pages ended `needs_human`): placeholder images from placehold.co where the brief provides none (hero, map, product photos), opening hours shown as « Bientôt précisé » and a missing phone number (both unknown in the brief), the Gravity Forms submit button and fields in the plugin's default blue rather than the design system's accent, and headings rendered in the body font — Fraunces is loaded and used by a few blocks, but the design tokens are not applied to GeneratePress' global heading typography (a provision gap to fix in a later phase). One automated finding: the blog page has no `h1` (GeneratePress archive template).
+
 ## Stages
-spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Phase 3 implements `pages`. Phase 4 implements `plugins`, phase 5 `content`. Phase 6a implements `qa`, phase 6b `export`: every stage of the pipeline is implemented.
+spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Phase 3 implements `pages`. Phase 4 implements `plugins`, phase 5 `content`. Phase 6a implements `qa`, phase 6b `export`: every stage of the pipeline is implemented. Phase 7 ran the whole chain on a fresh site (see « End-to-end run ») and added the per-stage cost and duration to `faktory.json` plus `faktory status`.
 
 ## Tests
 ```bash
