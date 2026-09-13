@@ -66,3 +66,5 @@ export const pageTreeRel = (slug: string): string => `${PAGES_DIR}/${slug}.gb.js
 export const pageMarkupRel = (slug: string): string => `${PAGES_DIR}/${slug}.html`;
 export const pageTreePath = (ctx: SiteContext, slug: string): string => join(ctx.siteDir, pageTreeRel(slug));
 export const pageMarkupPath = (ctx: SiteContext, slug: string): string => join(ctx.siteDir, pageMarkupRel(slug));
+
+export const CONTENT_DIR = "content";

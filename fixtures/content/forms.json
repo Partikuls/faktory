@@ -1,0 +1,4 @@
+{
+  "contact": { "gfId": 1, "placement": "<!-- wp:gravityforms/form {\"formId\":\"1\",\"title\":false,\"description\":false} /-->" },
+  "devis_evenement": { "gfId": 2, "placement": "<!-- wp:gravityforms/form {\"formId\":\"2\",\"title\":false,\"description\":false} /-->" }
+}
