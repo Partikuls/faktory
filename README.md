@@ -31,10 +31,11 @@ npm run faktory -- run boulangerie --only plugins --max-cost 30   # one agent pe
 npm run faktory -- run boulangerie --only qa --max-cost 10   # browser checks + screenshots of every url, one review agent per generated page (≤ 2 fix rounds), qa/QA-REPORT.md
 npm run faktory -- export boulangerie             # $0: sites/boulangerie/dist/ — db.sql (URL placeholder), wp-content.tar.gz, prod compose, README, MANIFEST
 npm run faktory -- resync boulangerie       # re-syncs any checkpoint JSON whose .md you edited after approve (also --max-cost)
+npm run faktory -- status boulangerie       # $0, no Docker: one row per stage (status, cost, duration, message), totals, site URL
 npm run faktory -- destroy boulangerie
 npm run faktory -- doctor --agent
 ```
-Sites live in `sites/<slug>/` (gitignored). `faktory.json` holds stage status, port, admin credentials and cumulated cost.
+Sites live in `sites/<slug>/` (gitignored). `faktory.json` holds stage status, port, admin credentials and cumulated cost; since phase 7 every stage record also carries its own `costUsd` (what that stage's last run spent, plus the checkpoint's `approve` re-sync) and `durationMs` (wall-clock of the last `run`, approval time excluded) — `faktory status <slug>` prints them as a table. A re-run of a stage overwrites its record.
 Site URL: `http://localhost:<port>` (ports start at 8100). Admin: `admin` / password in `faktory.json`.
 
 `faktory resync <slug>` is for edits made to `SITE-SPEC.md` or `design-system.md` *after* you already ran `approve` — `approve` only re-syncs once, at the checkpoint; a later hand edit is otherwise silently ignored until the next `run` or `resync`, which warns you when a `.md` is newer than its `.json`. Conversely, `run --only spec` (or `--only design`) regenerates that artifact from the brief with the agent and overwrites any hand edits to the `.md`/`.json`.
