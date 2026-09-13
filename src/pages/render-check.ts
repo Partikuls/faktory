@@ -14,7 +14,7 @@ export function pageUrl(ctx: SiteContext, page: Page): string {
   return page.kind === "home" ? `${siteUrl(ctx)}/` : `${siteUrl(ctx)}/${page.slug}/`;
 }
 
-const NAMED: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", hellip: "…", rsquo: "'", lsquo: "'", rdquo: "”", ldquo: "“", ndash: "–", mdash: "—" };
+const NAMED: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", ndash: "–", mdash: "—" };
 
 /** Decode the HTML entities WordPress and Yoast emit in titles (named subset + numeric). */
 export function decodeEntities(s: string): string {
@@ -49,24 +49,23 @@ function label(page: Page): string {
   return `${page.kind === "home" ? "/" : `/${page.slug}/`} (${page.slug})`;
 }
 
+async function assertPageContains(ctx: SiteContext, page: Page, needle: string, hint: string): Promise<void> {
+  void ctx;
+  const html = await deps.fetchText(pageUrl(ctx, page));
+  if (!html.includes(needle)) throw new Error(`${label(page)} does not render ${needle} — ${hint}`);
+}
+
 /**
  * The published-page half of the plugin contract: whichever stage inserted the block (`plugins` on an
  * existing tree, `pages` on a fresh one), the page must actually render `data-faktory-plugin="<id>"`.
  */
 export async function assertRendered(ctx: SiteContext, page: Page, featureId: string): Promise<void> {
-  const needle = `${RENDER_ATTR}="${featureId}"`;
-  const html = await deps.fetchText(pageUrl(ctx, page));
-  if (!html.includes(needle)) {
-    throw new Error(`${label(page)} does not render ${needle} — check the render function and that the block is registered`);
-  }
+  await assertPageContains(ctx, page, `${RENDER_ATTR}="${featureId}"`, "check the render function and that the block is registered");
 }
 
 export const formNeedle = (gfId: number): string => `gform_wrapper_${gfId}`;
 
 /** The published-page half of the forms contract: the Gravity Forms block placed by `content` or `pages` must render its wrapper. */
 export async function assertFormRendered(ctx: SiteContext, page: Page, gfId: number): Promise<void> {
-  const html = await deps.fetchText(pageUrl(ctx, page));
-  if (!html.includes(formNeedle(gfId))) {
-    throw new Error(`${label(page)} does not render ${formNeedle(gfId)} — check that Gravity Forms is active and form #${gfId} exists`);
-  }
+  await assertPageContains(ctx, page, formNeedle(gfId), `check that Gravity Forms is active and form #${gfId} exists`);
 }

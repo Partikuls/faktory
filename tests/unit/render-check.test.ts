@@ -13,6 +13,7 @@ const contact = spec.sitemap.find((p) => p.slug === "contact")!;
 describe("decodeEntities / pageTitle", () => {
   it("decodes named and numeric entities", () => {
     expect(decodeEntities("Pains &amp; viennoiseries &#8211; L&#039;atelier &quot;Rivet&quot; &lt;3 &#x27;ok&#x27;")).toBe("Pains & viennoiseries – L'atelier \"Rivet\" <3 'ok'");
+    expect(decodeEntities("l&rsquo;&lsquo;a&rsquo; &ndash; &mdash; &ldquo;b&rdquo; &hellip;")).toBe("l’‘a’ – — “b” …");
   });
   it("extracts the first <title>, decoded and trimmed", () => {
     expect(pageTitle("<html><head>\n<title>\n  Contact &amp; horaires - Maison Rivet </title></head><title>second</title>")).toBe("Contact & horaires - Maison Rivet");
