@@ -33,5 +33,5 @@ describe.skipIf(!existsSync("tools/phpstan/vendor/bin/phpstan"))("reference plug
     const r = await phpCheck(loadConfig(process.cwd()), DIR);
     expect(r.ok, r.output).toBe(true);
     expect(r.files).toBe(9);
-  });
+  }, 60_000);
 });

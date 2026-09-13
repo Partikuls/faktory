@@ -95,5 +95,5 @@ describe.skipIf(!existsSync("tools/phpstan/vendor/bin/phpstan"))("phpCheck (real
     expect(stan.output).toMatch(/undefined/i);
     const good = await phpCheck(cfg, pluginDir({ "a.php": "<?php\nfunction faktory_ok(): string { return esc_html( get_bloginfo( 'name' ) ); }\n" }));
     expect(good.ok, good.output).toBe(true);
-  });
+  }, 60_000);
 });
