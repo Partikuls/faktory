@@ -4,7 +4,7 @@ import type { FaktoryConfig } from "../config.js";
 import type { SiteContext } from "../docker.js";
 import { runAgent, runValidated } from "../agent.js";
 import { loadPrompt } from "../prompts.js";
-import { phpCheck } from "../php.js";
+import { phpCheck, phpDenylistIssues } from "../php.js";
 import { wpJson } from "../wp.js";
 import { hexIssues } from "../schemas/page-tree.js";
 import {
@@ -89,6 +89,10 @@ export async function verifyPlugin(ctx: SiteContext, spec: SiteSpec, feature: Fe
   if (missing.length) throw new Error(`missing file(s) in ${rel}: ${missing.join(", ")}`);
   const php = await deps.phpCheck(ctx.config, dir);
   if (!php.ok) throw new Error(`php_check failed:\n${php.output}`);
+  // PHPStan checks types, not intent: no agent-written plugin gets activated with shell access, code
+  // evaluation, raw SQL or a remote file read in it.
+  const dangerous = phpDenylistIssues(dir);
+  if (dangerous.length) throw new Error(`forbidden PHP construct(s) in ${rel}:\n- ${dangerous.join("\n- ")}`);
   const cssIssues: string[] = [];
   hexIssues(readFileSync(join(dir, "style.css"), "utf8"), "style.css", cssIssues);
   if (cssIssues.length) throw new Error(cssIssues.join("\n"));

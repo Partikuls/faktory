@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { loadConfig } from "../../src/config.js";
-import { phpCheck, listPhpFiles, phpstanBin, phpstanConfigPath, deps } from "../../src/php.js";
+import { phpCheck, listPhpFiles, phpstanBin, phpstanConfigPath, phpDenylistIssues, PHP_DENYLIST, deps } from "../../src/php.js";
 
 const config = loadConfig("/tmp/fk");
 function pluginDir(files: Record<string, string>): string {
@@ -21,6 +21,32 @@ describe("php paths", () => {
   it("lists .php files recursively, sorted, skipping vendor and node_modules", () => {
     const dir = pluginDir({ "b.php": "", "includes/a.php": "", "vendor/x.php": "", "node_modules/y.php": "", "style.css": "" });
     expect(listPhpFiles(dir).map((f) => f.slice(dir.length + 1))).toEqual(["b.php", "includes/a.php"]);
+  });
+});
+
+describe("phpDenylistIssues", () => {
+  it("flags every dangerous construct with its file and line", () => {
+    const dir = pluginDir({
+      "a.php": "<?php\n$x = 1;\neval( $code );\n",
+      "inc/b.php": "<?php\n$out = shell_exec('ls');\n$rows = $wpdb->query( $sql );\n$body = file_get_contents( 'https://x' );\n$b = base64_decode($s) . unserialize($t);\n",
+    });
+    expect(phpDenylistIssues(dir)).toEqual([
+      "a.php:3: forbidden PHP construct eval(",
+      "inc/b.php:2: forbidden PHP construct shell_exec(",
+      "inc/b.php:3: forbidden PHP construct $wpdb->query(",
+      "inc/b.php:4: forbidden PHP construct file_get_contents('http",
+      "inc/b.php:5: forbidden PHP construct base64_decode(",
+      "inc/b.php:5: forbidden PHP construct unserialize(",
+    ]);
+    expect(PHP_DENYLIST).toContain("eval(");
+    expect(PHP_DENYLIST).toContain("$wpdb->query(");
+  });
+  it("matches calls only: lookalike function names, prose and a local file read pass", () => {
+    const dir = pluginDir({
+      "a.php": "<?php\n// eval, exec and system are forbidden in this plugin.\n$r = wp_remote_get( $url );\n$v = maybe_unserialize( $raw );\n$t = file_get_contents( $path );\n$wpdb->prepare( $sql );\n$s = $this->system( 'x' );\n",
+      "style.css": "eval(",
+    });
+    expect(phpDenylistIssues(dir)).toEqual([]);
   });
 });
 
@@ -58,7 +84,7 @@ describe("phpCheck (mocked run)", () => {
     expect(r.output).toContain("Undefined variable $x");
     const call = run.mock.calls.find((c: any) => c[0] !== "php")!;
     expect(call[0]).toBe(join(root, "tools/phpstan/vendor/bin/phpstan"));
-    expect(call[1]).toEqual(["analyse", "--no-progress", "--error-format=raw", "--level=5", "--memory-limit=1G", "-c", join(root, "tools/phpstan/phpstan.neon"), dir]);
+    expect(call[1]).toEqual(["analyse", "--no-progress", "--error-format=raw", "--level=5", "--memory-limit=1G", "-c", join(root, "tools/phpstan/phpstan.neon"), join(dir, "a.php")]);
     expect(call[2]).toMatchObject({ cwd: join(root, "tools/phpstan") });
   });
   it("resolves a relative dir to its absolute form before running phpstan (its cwd is tools/phpstan, not ours)", async () => {
@@ -71,8 +97,8 @@ describe("phpCheck (mocked run)", () => {
     const r = await phpCheck({ ...config, repoRoot: root }, relDir);
     expect(r).toMatchObject({ ok: true, files: 1 });
     const call = run.mock.calls.find((c: any) => c[0] !== "php")!;
-    expect(call[1][call[1].length - 1]).toBe(resolve(relDir));
-    expect(call[1][call[1].length - 1]).toBe(dir);
+    expect(call[1][call[1].length - 1]).toBe(join(resolve(relDir), "a.php"));
+    expect(call[1][call[1].length - 1]).toBe(join(dir, "a.php"));
   });
   it("reports OK with the file count when both pass", async () => {
     const dir = pluginDir({ "a.php": "<?php", "inc/b.php": "<?php" });

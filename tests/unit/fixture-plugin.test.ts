@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "../../src/config.js";
-import { phpCheck } from "../../src/php.js";
+import { phpCheck, phpDenylistIssues } from "../../src/php.js";
 
 const DIR = "fixtures/plugins/faktory-catalogue-produits";
 const FILES = [
@@ -22,6 +22,7 @@ describe("reference plugin fixture", () => {
     expect(block.style).toBe("faktory-catalogue-produits");
     expect(readFileSync(join(DIR, "includes/render.php"), "utf8")).toContain('data-faktory-plugin="catalogue_produits"');
     expect(readFileSync(join(DIR, "style.css"), "utf8")).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
+    expect(phpDenylistIssues(DIR)).toEqual([]);
     const manifest = JSON.parse(readFileSync("fixtures/plugins/catalogue_produits.manifest.json", "utf8"));
     expect(Object.keys(manifest.placements).sort()).toEqual(["accueil", "nos-produits"]);
     for (const p of Object.values(manifest.placements) as string[]) expect(p).toMatch(/^<!-- wp:faktory\/catalogue-produits \{.*\} \/-->$/);

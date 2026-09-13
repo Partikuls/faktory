@@ -30,4 +30,9 @@ describe("prompts", () => {
     expect(p).toContain("data-faktory-feature");
     expect(p).toContain("data-faktory-form");
   });
+  it("loads the plugins prompt with the contract and the forbidden PHP constructs", () => {
+    const p = loadPrompt("plugins");
+    expect(p).toContain("data-faktory-plugin");
+    for (const c of ["eval(", "shell_exec(", "$wpdb->query(", "base64_decode(", "unserialize("]) expect(p).toContain(c);
+  });
 });

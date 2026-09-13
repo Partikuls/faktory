@@ -101,6 +101,12 @@ describe("verifyPlugin", () => {
     vi.spyOn(deps, "phpCheck").mockResolvedValue({ ok: false, output: "PHPStan level 5:\nincludes/render.php:12:Undefined variable $x", files: 9 });
     await expect(verifyPlugin(c, spec, feature)).rejects.toThrow(/php_check failed:\nPHPStan level 5:\nincludes\/render.php:12/);
   });
+  it("refuses a dangerous PHP construct before the plugin is activated", async () => {
+    const c = await ctx(); installFixture(c); phpOk(); healthyWp();
+    const file = join(pluginDirPath(c, feature.id), "includes/render.php");
+    writeFileSync(file, readFileSync(file, "utf8") + "\n$out = eval( $code );\n");
+    await expect(verifyPlugin(c, spec, feature)).rejects.toThrow(/forbidden PHP construct\(s\) in wp-content\/plugins\/faktory-catalogue-produits:\n- includes\/render.php:\d+: forbidden PHP construct eval\(/);
+  });
   it("refuses hex colors in style.css", async () => {
     const c = await ctx(); installFixture(c); phpOk();
     writeFileSync(join(pluginDirPath(c, feature.id), "style.css"), ".x { color: #fff; }");
