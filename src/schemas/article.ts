@@ -73,21 +73,19 @@ export function countWords(a: Article): number {
 }
 
 const INLINE_RE = /<[^>]+>/g;
-const CLOSING_TAG_RE = /^<\/[a-zA-Z][a-zA-Z0-9]*>$/;
-const ALLOWED_RE = /^<(strong|em)>$|^<a href="([^"]*)">$/;
+const ALLOWED_RE = /^<\/?(strong|em)>$|^<\/a>$|^<a href="([^"]*)">$/;
 
 /**
  * Only <strong>, <em> and <a href="/…"|"https://…"> may appear in article text (decision 5).
- * Denylisted markup (script/iframe/javascript:/on*=) is checked per tag, not once for the whole
- * text, so two different offending tags each get their own issue. A closing tag is only ever
- * structurally paired with an opening tag that was already checked, so closing tags are not
- * re-flagged as "forbidden inline HTML" on their own.
+ * The denylist (script/iframe/javascript:/on*=) is checked across the whole text — not just
+ * inside tags — so a bare "javascript:" or "onclick=" in plain text is caught too. Closing tags
+ * are whitelisted by name only (</strong>, </em>, </a>); any other closing tag (e.g. </iframe>)
+ * is still flagged as forbidden inline HTML.
  */
 export function inlineHtmlIssues(text: string, at: string, issues: string[]): void {
+  for (const m of text.matchAll(new RegExp(DENYLIST_RE.source, "gi"))) issues.push(`${at}: forbidden markup (${m[0]})`);
   for (const tag of text.match(INLINE_RE) ?? []) {
-    const forbidden = tag.match(DENYLIST_RE);
-    if (forbidden) { issues.push(`${at}: forbidden markup (${forbidden[0]})`); continue; }
-    if (CLOSING_TAG_RE.test(tag)) continue;
+    if (DENYLIST_RE.test(tag)) continue; // already reported above
     const m = tag.match(ALLOWED_RE);
     if (!m) { issues.push(`${at}: forbidden inline HTML ${tag}`); continue; }
     if (m[2] !== undefined && !(m[2].startsWith("/") || m[2].startsWith("https://"))) {

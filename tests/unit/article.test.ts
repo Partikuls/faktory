@@ -64,12 +64,23 @@ describe("countWords / inlineHtmlIssues", () => {
     const bad: string[] = [];
     inlineHtmlIssues('<span>x</span> <a href="http://x.fr">y</a> <a href="javascript:alert(1)">z</a> <img src="x"> <a onclick="x" href="/a/">w</a>', "blocks.2", bad);
     expect(bad).toEqual([
-      "blocks.2: forbidden inline HTML <span>",
-      'blocks.2: forbidden inline HTML <a href="http://x.fr"> (href must start with / or https://)',
       "blocks.2: forbidden markup (javascript:)",
-      "blocks.2: forbidden inline HTML <img src=\"x\">",
       "blocks.2: forbidden markup (onclick=)",
+      "blocks.2: forbidden inline HTML <span>",
+      "blocks.2: forbidden inline HTML </span>",
+      'blocks.2: forbidden inline HTML <a href="http://x.fr"> (href must start with / or https://)',
+      "blocks.2: forbidden inline HTML <img src=\"x\">",
     ]);
+  });
+  it("catches the denylist in plain text, not just inside tags", () => {
+    const i1: string[] = [];
+    inlineHtmlIssues("Cliquez ici: javascript:alert(1)", "p", i1);
+    expect(i1).toEqual(["p: forbidden markup (javascript:)"]);
+  });
+  it("still flags a closing tag that isn't strong/em/a", () => {
+    const i2: string[] = [];
+    inlineHtmlIssues("fin </iframe>", "p", i2);
+    expect(i2).toEqual(["p: forbidden inline HTML </iframe>"]);
   });
 });
 
