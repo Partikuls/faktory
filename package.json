@@ -8,7 +8,8 @@
     "test": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration --testTimeout=600000 --hookTimeout=600000",
     "typecheck": "tsc --noEmit",
-    "sync-skills": "bash scripts/sync-skills.sh"
+    "sync-skills": "bash scripts/sync-skills.sh",
+    "setup-phpstan": "composer install -d tools/phpstan --no-interaction"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.269",

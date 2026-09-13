@@ -5,11 +5,13 @@ import { dirname, resolve, sep } from "node:path";
 import type { SiteContext } from "../docker.js";
 import { runWp } from "../wp.js";
 import { gbBuild, gbPreview, countBlocks, type PreviewOptions } from "../gb.js";
+import { phpCheck } from "../php.js";
 
 export const FAKTORY_SERVER = "faktory";
 export const TOOL_WP = `mcp__${FAKTORY_SERVER}__wp`;
 export const TOOL_GB_BUILD = `mcp__${FAKTORY_SERVER}__gb_build`;
 export const TOOL_GB_PREVIEW = `mcp__${FAKTORY_SERVER}__gb_preview`;
+export const TOOL_PHP_CHECK = `mcp__${FAKTORY_SERVER}__php_check`;
 const MAX_OUT = 20_000;
 const FORBIDDEN: string[][] = [
   ["db", "drop"],
@@ -76,6 +78,18 @@ export function gbPreviewToolHandler(ctx: SiteContext) {
   };
 }
 
+export function phpCheckToolHandler(ctx: SiteContext) {
+  return async (input: { pluginDir: string }): Promise<{ content: { type: "text"; text: string }[]; isError?: true }> => {
+    try {
+      const abs = resolveSitePath(ctx, input.pluginDir);
+      const r = await phpCheck(ctx.config, abs);
+      return r.ok ? ok(r.output) : fail(r.output);
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : String(err));
+    }
+  };
+}
+
 export function wpToolHandler(ctx: SiteContext) {
   return async (input: { args: string[]; stdin?: string }) => {
     const reason = forbidden(input.args);
@@ -122,5 +136,11 @@ export function createFaktoryServer(ctx: SiteContext) {
     },
     gbPreviewToolHandler(ctx),
   );
-  return createSdkMcpServer({ name: FAKTORY_SERVER, version: "0.1.0", tools: [wp, gbBuildTool, gbPreviewTool] });
+  const phpCheckTool = tool(
+    "php_check",
+    "Lint (php -l) and analyse (PHPStan level 5, WordPress-aware) every PHP file of a plugin directory. pluginDir is relative to the site directory, e.g. wp-content/plugins/faktory-produits. Fix every reported error before activating the plugin.",
+    { pluginDir: z.string().describe("Plugin directory relative to the site dir") },
+    phpCheckToolHandler(ctx),
+  );
+  return createSdkMcpServer({ name: FAKTORY_SERVER, version: "0.1.0", tools: [wp, gbBuildTool, gbPreviewTool, phpCheckTool] });
 }

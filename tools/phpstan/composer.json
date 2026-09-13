@@ -1,0 +1,11 @@
+{
+  "name": "partikuls/faktory-phpstan",
+  "description": "PHPStan toolchain used by Faktory's php_check tool (npm run setup-phpstan)",
+  "type": "project",
+  "license": "proprietary",
+  "require-dev": {
+    "phpstan/phpstan": "^2.2",
+    "szepeviktor/phpstan-wordpress": "^2.0"
+  },
+  "config": { "sort-packages": true }
+}

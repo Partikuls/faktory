@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -10,7 +10,8 @@ import type { SiteContext } from "../../src/docker.js";
 import { deps } from "../../src/wp.js";
 import { gbScript, deps as gbDeps } from "../../src/gb.js";
 import * as gbModule from "../../src/gb.js";
-import { wpToolHandler, createFaktoryServer, FAKTORY_SERVER, TOOL_WP, resolveSitePath, gbBuildToolHandler, gbPreviewToolHandler, TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../../src/tools/server.js";
+import { deps as phpDeps } from "../../src/php.js";
+import { wpToolHandler, createFaktoryServer, FAKTORY_SERVER, TOOL_WP, resolveSitePath, gbBuildToolHandler, gbPreviewToolHandler, TOOL_GB_BUILD, TOOL_GB_PREVIEW, TOOL_PHP_CHECK, phpCheckToolHandler } from "../../src/tools/server.js";
 
 const ctx: SiteContext = { config: loadConfig("/tmp/fk"), slug: "demo", siteDir: "/tmp/fk/sites/demo", state: createState("demo", 8100, "pw") };
 
@@ -143,8 +144,35 @@ describe("gb tools", () => {
   });
 });
 
+describe("php_check tool", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  // ctx.siteDir is a fake path (/tmp/fk/sites/demo); build a real temp site + repoRoot for this block.
+  const tmpPhpCtx = (): SiteContext => {
+    const tmp = mkdtempSync(join(tmpdir(), "fk-php-tool-"));
+    return { ...ctx, siteDir: tmp, config: { ...ctx.config, repoRoot: tmp } };
+  };
+  it("is exposed under the faktory namespace and appears in tools/list", async () => {
+    expect(TOOL_PHP_CHECK).toBe("mcp__faktory__php_check");
+  });
+  it("resolves pluginDir inside the site dir and returns the phpCheck output", async () => {
+    vi.spyOn(phpDeps, "run").mockResolvedValue({ stdout: "", stderr: "", code: 0 });
+    const c = tmpPhpCtx();
+    const dir = join(c.siteDir, "wp-content/plugins/faktory-x");
+    mkdirSync(dir, { recursive: true }); writeFileSync(join(dir, "x.php"), "<?php");
+    const r = await phpCheckToolHandler(c)({ pluginDir: "wp-content/plugins/faktory-x" });
+    // phpstan is not installed under the test ctx repoRoot → explicit failure
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toMatch(/PHPStan not installed/);
+  });
+  it("refuses a pluginDir outside the site dir", async () => {
+    const r = await phpCheckToolHandler(tmpPhpCtx())({ pluginDir: "../../etc" });
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toMatch(/inside the site directory/);
+  });
+});
+
 describe("createFaktoryServer over MCP", () => {
-  it("lists wp, gb_build and gb_preview through tools/list (regression: z.record broke the schema conversion)", async () => {
+  it("lists wp, gb_build, gb_preview and php_check through tools/list (regression: z.record broke the schema conversion)", async () => {
     const server = createFaktoryServer(ctx) as unknown as { name: string; instance: { connect(t: unknown): Promise<void> } };
     expect(server.name).toBe(FAKTORY_SERVER);
     const [a, b] = InMemoryTransport.createLinkedPair();
@@ -152,7 +180,7 @@ describe("createFaktoryServer over MCP", () => {
     const client = new Client({ name: "test", version: "0" });
     await client.connect(b);
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["gb_build", "gb_preview", "wp"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["gb_build", "gb_preview", "php_check", "wp"]);
     const gb = tools.find((t) => t.name === "gb_build")!;
     expect(JSON.stringify(gb.inputSchema)).toContain("\"tree\"");
     await client.close();
