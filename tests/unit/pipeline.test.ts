@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { loadConfig } from "../../src/config.js";
 import { initSite, siteDir } from "../../src/workspace.js";
 import { readState, setStage, writeState } from "../../src/state.js";
-import { runSite, approveSite, resyncSite, destroySite, loadContext, deps, type Stage } from "../../src/pipeline.js";
+import { runSite, approveSite, resyncSite, destroySite, loadContext, deps, registry, type Stage } from "../../src/pipeline.js";
 import { artifactPath, writeJsonArtifact, writeTextArtifact } from "../../src/artifacts.js";
 import { deps as resyncDeps } from "../../src/resync.js";
 
@@ -182,5 +182,11 @@ describe("resyncSite", () => {
     const run = vi.spyOn(resyncDeps, "runAgent");
     await expect(resyncSite(config, "pp")).rejects.toThrow(/Cost budget reached/);
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe("registry", () => {
+  it("registers spec, design, provision and pages", () => {
+    expect(Object.keys(registry)).toEqual(["spec", "design", "provision", "pages"]);
   });
 });
