@@ -18,7 +18,7 @@ import type { SiteContext } from "../../src/docker.js";
 const FIXTURE = "fixtures/plugins/faktory-catalogue-produits";
 const MANIFEST = "fixtures/plugins/catalogue_produits.manifest.json";
 
-/** Same stand-in tree as tests/integration/pages.test.ts (wrapped markers). */
+/** Stand-in tree with wrapped markers (a trimmed variant of the one in tests/integration/pages.test.ts). */
 function stubTree(page: Page): PageTree {
   return page.sections.map((s, i): GbNode => ({
     type: "element", tagName: "section", htmlAttributes: { id: `s-${i}` },

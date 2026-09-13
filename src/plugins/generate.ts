@@ -25,7 +25,8 @@ export function referencePluginDir(config: FaktoryConfig): string {
 
 export function pluginsUserPrompt(spec: SiteSpec, feature: Feature, opts: { referenceDir: string }): string {
   const id = feature.id;
-  const pages = spec.sitemap.filter((p) => placementPages(spec, id).includes(p.slug));
+  const slugs = placementPages(spec, id);
+  const pages = spec.sitemap.filter((p) => slugs.includes(p.slug));
   const field = (f: Feature["fields"][number]): string =>
     `\`${f.key}\` ${f.label} (${f.type}${f.options?.length ? ` : ${f.options.join(" | ")}` : ""})`;
   const lines: string[] = [
@@ -46,10 +47,12 @@ export function pluginsUserPrompt(spec: SiteSpec, feature: Feature, opts: { refe
     feature.display,
     "",
     "## Pages où insérer le bloc (une entrée `placements` chacune, aucune autre)",
-    ...pages.map((p) => {
-      const sections = p.sections.filter((s) => s.type === "custom-query" && s.feature === id);
-      return `- \`${p.slug}\` (${p.kind === "home" ? "/" : `/${p.slug}/`}) — ${sections.map((s) => `section « ${s.heading} » : ${s.summary}`).join(" ; ")}`;
-    }),
+    ...(pages.length
+      ? pages.map((p) => {
+        const sections = p.sections.filter((s) => s.type === "custom-query" && s.feature === id);
+        return `- \`${p.slug}\` (${p.kind === "home" ? "/" : `/${p.slug}/`}) — ${sections.map((s) => `section « ${s.heading} » : ${s.summary}`).join(" ; ")}`;
+      })
+      : ["- aucune (le manifeste aura un objet placements vide)"]),
     "",
     "## Identité",
     `${spec.identity.name} — ${spec.identity.sector}${spec.identity.location ? ` (${spec.identity.location})` : ""}. Ton : ${spec.identity.tone}.`,

@@ -14,7 +14,7 @@ Ne lis rien d'autre : la feature complète et les pages qui l'affichent sont dan
 
 ## Boucle de travail
 1. Lis le plugin de référence, puis écris le plugin complet.
-2. `php_check` (`{ "pluginDir": "wp-content/plugins/faktory-<kebab>" }`) : corrige chaque erreur (php -l puis PHPStan niveau 5) jusqu'à « OK ». Deux allers-retours maximum après le premier, puis passe à la suite en signalant ce qui reste.
+2. `php_check` (`{ "pluginDir": "wp-content/plugins/faktory-<kebab>" }`) : corrige chaque erreur (php -l puis PHPStan niveau 5) jusqu'à « OK ». Deux allers-retours `php_check` maximum, puis passe à la suite en signalant ce qui reste.
 3. `wp` `["plugin","activate","faktory-<kebab>"]` — l'activation crée les termes des taxonomies.
 4. Alimente 4 à 6 entrées de démonstration réalistes (titres et textes courts en français, dérivés de la feature ; prix plausibles ; au moins 2 entrées « mises en avant » quand la feature a un tel champ) :
    - `wp` `["media","import","https://placehold.co/800x600.png","--porcelain"]` → ID d'attachement (une image par entrée ; si l'import échoue, continue sans image) ;

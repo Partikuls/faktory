@@ -58,6 +58,11 @@ describe("pluginsUserPrompt", () => {
     expect(p).toContain("/repo/fixtures/plugins/faktory-catalogue-produits");
     expect(p).toContain(feature.display);
   });
+  it("says so when no page shows the feature (the manifest will have empty placements)", () => {
+    const orphan = { ...spec, sitemap: spec.sitemap.map((pg) => ({ ...pg, sections: pg.sections.filter((s) => s.type !== "custom-query") })) };
+    const p = pluginsUserPrompt(orphan, feature, { referenceDir: "/repo/fixtures/plugins/faktory-catalogue-produits" });
+    expect(p).toContain("## Pages où insérer le bloc (une entrée `placements` chacune, aucune autre)\n- aucune (le manifeste aura un objet placements vide)\n");
+  });
 });
 
 describe("readPluginManifest", () => {
