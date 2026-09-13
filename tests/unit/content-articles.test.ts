@@ -118,6 +118,7 @@ describe("ensureCategories / publishArticle", () => {
     const wpOk = vi.spyOn(deps, "wpOk").mockImplementation(async (_c, args) => {
       calls.push(args);
       if (args[0] === "term" && args[1] === "create") return String(args[3] === "Recettes" ? 6 : 7);
+      if (args[0] === "user" && args[1] === "get") return "1";
       if (args[0] === "post" && args[1] === "create") return "42";
       if (args[0] === "post" && args[1] === "update") return "Success";
       if (args[0] === "post" && args[1] === "term") return "Success";
@@ -146,8 +147,9 @@ describe("ensureCategories / publishArticle", () => {
     const a = fixture();
     const id = await publishArticle(c, SLUG, a, { Saison: 5 }, "galette des rois Nantes");
     expect(id).toBe(42);
+    expect(s.wpOk).toHaveBeenCalledWith(c, ["user", "get", c.state.adminUser, "--field=ID"]);
     const create = s.calls.find((k) => k[0] === "post" && k[1] === "create")!;
-    expect(create).toEqual(["post", "create", "-", "--post_type=post", "--post_status=publish", `--post_title=${a.title}`, `--post_name=${SLUG}`, `--post_excerpt=${a.excerpt}`, "--porcelain"]);
+    expect(create).toEqual(["post", "create", "-", "--post_type=post", "--post_status=publish", `--post_title=${a.title}`, `--post_name=${SLUG}`, `--post_excerpt=${a.excerpt}`, "--post_author=1", "--porcelain"]);
     expect(s.wpOk.mock.calls.find((k: any) => k[1][1] === "create")![2]).toEqual({ input: serializeArticle(a) });
     expect(s.wpOk).toHaveBeenCalledWith(c, ["post", "term", "set", "42", "category", "5", "--by=id"]);
     expect(s.wpOk).toHaveBeenCalledWith(c, ["media", "import", PLACEHOLDER_IMAGE, "--post_id=42", "--featured_image", `--alt=${a.title}`, "--porcelain"]);
@@ -160,7 +162,8 @@ describe("ensureCategories / publishArticle", () => {
     const s = spies({ existingPost: 17, thumb: "99" });
     const a = fixture();
     expect(await publishArticle(c, SLUG, a, { Saison: 5 }, "galette des rois Nantes")).toBe(17);
-    expect(s.wpOk).toHaveBeenCalledWith(c, ["post", "update", "17", "-", "--post_status=publish", `--post_title=${a.title}`, `--post_excerpt=${a.excerpt}`], { input: serializeArticle(a) });
+    expect(s.wpOk).toHaveBeenCalledWith(c, ["user", "get", c.state.adminUser, "--field=ID"]);
+    expect(s.wpOk).toHaveBeenCalledWith(c, ["post", "update", "17", "-", "--post_status=publish", `--post_title=${a.title}`, `--post_excerpt=${a.excerpt}`, "--post_author=1"], { input: serializeArticle(a) });
     expect(s.wpOk.mock.calls.some((k: any) => k[1][0] === "media")).toBe(false);
     expect(s.wpOk.mock.calls.some((k: any) => k[1][1] === "create")).toBe(false);
   });

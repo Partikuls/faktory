@@ -106,13 +106,14 @@ export async function publishArticle(ctx: SiteContext, slug: string, article: Ar
   const cat = categories[article.category];
   if (!cat) throw new Error(`no category term for "${article.category}" — ensureCategories must run first`);
   const markup = serializeArticle(article);
+  const authorId = await deps.wpOk(ctx, ["user", "get", ctx.state.adminUser, "--field=ID"]);
   const existing = await deps.wpJson<{ ID: number }[]>(ctx, ["post", "list", "--post_type=post", "--post_status=any", `--name=${slug}`, "--fields=ID"]);
   let id: number;
   if (existing.length) {
     id = existing[0].ID;
-    await deps.wpOk(ctx, ["post", "update", String(id), "-", "--post_status=publish", `--post_title=${article.title}`, `--post_excerpt=${article.excerpt}`], { input: markup });
+    await deps.wpOk(ctx, ["post", "update", String(id), "-", "--post_status=publish", `--post_title=${article.title}`, `--post_excerpt=${article.excerpt}`, `--post_author=${authorId}`], { input: markup });
   } else {
-    id = Number(await deps.wpOk(ctx, ["post", "create", "-", "--post_type=post", "--post_status=publish", `--post_title=${article.title}`, `--post_name=${slug}`, `--post_excerpt=${article.excerpt}`, "--porcelain"], { input: markup }));
+    id = Number(await deps.wpOk(ctx, ["post", "create", "-", "--post_type=post", "--post_status=publish", `--post_title=${article.title}`, `--post_name=${slug}`, `--post_excerpt=${article.excerpt}`, `--post_author=${authorId}`, "--porcelain"], { input: markup }));
   }
   await deps.wpOk(ctx, ["post", "term", "set", String(id), "category", String(cat), "--by=id"]);
   const thumb = await deps.runWp(ctx, ["post", "meta", "get", String(id), "_thumbnail_id"]);

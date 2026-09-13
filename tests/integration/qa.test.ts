@@ -97,12 +97,7 @@ describe.skipIf(!process.env.FAKTORY_DOCKER || !chromiumInstalled())("qa stage o
       expect(p.check.consoleErrors, p.url).toEqual([]);
       expect(p.check.unstyledBlocks, p.url).toEqual([]);
       expect(p.check.brokenImages, p.url).toEqual([]);
-      // known content-stage defect (see task-8-report.md deviations): `publishArticle` creates posts via
-      // `wp post create` without `--post_author`, so every article gets post_author 0. GeneratePress's blog-loop
-      // byline then links to the author archive with an empty nicename (`/author/`), which 404s. That is a real
-      // broken link the browser genuinely finds — not a qa check-logic bug — so we exclude only that one known
-      // href here rather than weakening the check; every other broken link still fails the assertion.
-      expect(p.check.brokenLinks.filter((l) => l.href !== `http://localhost:${ctx.state.port}/author/`), p.url).toEqual([]);
+      expect(p.check.brokenLinks, p.url).toEqual([]);
       // the "blog" kind page (/actualites/) is the one sitemap page the `pages` stage deliberately skips (no
       // pages/<slug>.gb.json is generated for it — see "blog skipped" in the pages stage message), so it renders
       // GeneratePress's bare posts-listing template: post titles are <h2>, and there is no page-level <h1> at
