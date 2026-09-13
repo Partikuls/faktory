@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames, addCost, remainingBudget, uniqueServerName, remapTools } from "../../src/agent.js";
+import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames, addCost, remainingBudget } from "../../src/agent.js";
 import { loadConfig } from "../../src/config.js";
 import { createState } from "../../src/state.js";
-import { FAKTORY_SERVER, TOOL_WP, TOOL_GB_BUILD } from "../../src/tools/server.js";
 
 describe("isInside", () => {
   it("accepts children and rejects escapes", () => {
@@ -86,18 +85,5 @@ describe("remainingBudget", () => {
   it("is maxCostUsd minus spent, floored at 0.05", () => {
     expect(remainingBudget({ ...base, state: { ...base.state, costUsd: 10 } })).toBe(30);
     expect(remainingBudget({ ...base, state: { ...base.state, costUsd: 45 } })).toBe(0.05);
-  });
-});
-
-describe("uniqueServerName / remapTools", () => {
-  it("derives a fresh faktory-<hex> name each call", () => {
-    const a = uniqueServerName(), b = uniqueServerName();
-    expect(a).toMatch(new RegExp(`^${FAKTORY_SERVER}-[0-9a-f]{8}$`));
-    expect(a).not.toBe(b);
-  });
-  it("rewrites only the canonical mcp__faktory__ tool names, preserving order", () => {
-    expect(remapTools([TOOL_WP, "Read", TOOL_GB_BUILD, "Skill"], "faktory-abcd1234"))
-      .toEqual(["mcp__faktory-abcd1234__wp", "Read", "mcp__faktory-abcd1234__gb_build", "Skill"]);
-    expect(remapTools(["mcp__other__x"], "faktory-abcd1234")).toEqual(["mcp__other__x"]);
   });
 });

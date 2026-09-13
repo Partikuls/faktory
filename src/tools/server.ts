@@ -87,7 +87,7 @@ export function wpToolHandler(ctx: SiteContext) {
   };
 }
 
-export function createFaktoryServer(ctx: SiteContext, name: string = FAKTORY_SERVER) {
+export function createFaktoryServer(ctx: SiteContext) {
   const wp = tool(
     "wp",
     "Run a WP-CLI command against this site's WordPress (inside Docker). Pass args as an array, e.g. [\"post\",\"list\",\"--post_type=page\",\"--format=json\"]. Use stdin for post content. Destructive db/site commands and arbitrary PHP (eval, shell) are refused.",
@@ -117,5 +117,5 @@ export function createFaktoryServer(ctx: SiteContext, name: string = FAKTORY_SER
     },
     gbPreviewToolHandler(ctx),
   );
-  return createSdkMcpServer({ name, version: "0.1.0", tools: [wp, gbBuildTool, gbPreviewTool] });
+  return createSdkMcpServer({ name: FAKTORY_SERVER, version: "0.1.0", tools: [wp, gbBuildTool, gbPreviewTool] });
 }

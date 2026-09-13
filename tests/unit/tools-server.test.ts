@@ -7,7 +7,7 @@ import { createState } from "../../src/state.js";
 import type { SiteContext } from "../../src/docker.js";
 import { deps } from "../../src/wp.js";
 import { gbScript, deps as gbDeps } from "../../src/gb.js";
-import { wpToolHandler, createFaktoryServer, TOOL_WP, resolveSitePath, gbBuildToolHandler, gbPreviewToolHandler, TOOL_GB_BUILD, TOOL_GB_PREVIEW, FAKTORY_SERVER } from "../../src/tools/server.js";
+import { wpToolHandler, createFaktoryServer, TOOL_WP, resolveSitePath, gbBuildToolHandler, gbPreviewToolHandler, TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../../src/tools/server.js";
 
 const ctx: SiteContext = { config: loadConfig("/tmp/fk"), slug: "demo", siteDir: "/tmp/fk/sites/demo", state: createState("demo", 8100, "pw") };
 
@@ -128,12 +128,5 @@ describe("gb tools", () => {
     const html = readFileSync(join(c.siteDir, "preview.html"), "utf8");
     expect(html).toContain("--accent:#123456");
     expect(html).toContain("family=Fraunces:wght@400;700");
-  });
-});
-
-describe("createFaktoryServer name", () => {
-  it("defaults to the canonical name and accepts an override", () => {
-    expect(createFaktoryServer(ctx).name).toBe(FAKTORY_SERVER);
-    expect(createFaktoryServer(ctx, "faktory-12345678").name).toBe("faktory-12345678");
   });
 });
