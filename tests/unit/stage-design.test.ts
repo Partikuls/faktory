@@ -83,6 +83,19 @@ describe("design stage", () => {
     await expect(designStage.run(c)).rejects.toThrow(/Invalid design tokens/);
     expect(hasArtifact(c, "designTokensJson")).toBe(false);
   });
+  it("retries once when the agent forgot a file, and succeeds if the retry writes it", async () => {
+    const c = await ctx();
+    const run = vi.spyOn(deps, "runAgent")
+      .mockImplementationOnce(async (cc) => { agentWrites(cc, { md: true, tree: false }); return { text: "", structured: tokens, costUsd: 1, sessionId: "d-1", numTurns: 5 }; })
+      .mockImplementationOnce(async (cc) => { agentWrites(cc); return { text: "", structured: tokens, costUsd: 0.3, sessionId: "d-1", numTurns: 3 }; });
+    vi.spyOn(deps, "gbBuild").mockResolvedValue("<!-- wp:generateblocks/element {} -->\n<section></section>\n<!-- /wp:generateblocks/element -->\n");
+    vi.spyOn(deps, "gbPreview").mockResolvedValue(undefined);
+    const msg = await designStage.run(c);
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[1][1].resume).toBe("d-1");
+    expect(run.mock.calls[1][1].prompt).toMatch(/preview\.gb\.json/);
+    expect(msg).toMatch(/\$1\.30/);
+  });
   it("builds a user prompt from the spec", () => {
     const p = designUserPrompt(parseSiteSpec(spec));
     expect(p).toContain("Maison Rivet");

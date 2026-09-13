@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { SiteContext } from "./docker.js";
-import { runAgent } from "./agent.js";
+import { runAgent, runValidated } from "./agent.js";
 import { ARTIFACTS, isStale, writeJsonArtifact, type ArtifactKey } from "./artifacts.js";
 import { toJsonSchema } from "./schemas/json-schema.js";
 import { SiteSpecShape, parseSiteSpec, type SiteSpec } from "./schemas/site-spec.js";
@@ -37,7 +37,7 @@ export async function resyncFromMarkdown<T>(ctx: SiteContext, opts: ResyncOption
   if (!isStale(ctx, opts.mdKey, opts.jsonKey)) return undefined;
   const md = ARTIFACTS[opts.mdKey], json = ARTIFACTS[opts.jsonKey];
   console.log(`↻ ${md} was edited after ${json}: re-extracting ${opts.what}…`);
-  const r = await deps.runAgent(ctx, {
+  const r = await runValidated(deps.runAgent, ctx, {
     stage: "resync",
     prompt: [
       `Le fichier \`${md}\` a été modifié à la main après la génération de \`${json}\`.`,
@@ -48,8 +48,7 @@ export async function resyncFromMarkdown<T>(ctx: SiteContext, opts: ResyncOption
     allowedTools: ["Read"],
     outputFormat: { type: "json_schema", schema: toJsonSchema(opts.shape) },
     maxTurns: 8,
-  });
-  const data = opts.parse(r.structured);
-  writeJsonArtifact(ctx, opts.jsonKey, data);
-  return data;
+  }, (a) => opts.parse(a.structured));
+  writeJsonArtifact(ctx, opts.jsonKey, r.value);
+  return r.value;
 }

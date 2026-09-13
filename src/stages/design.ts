@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Stage } from "../pipeline.js";
-import { runAgent } from "../agent.js";
+import { runAgent, runValidated } from "../agent.js";
 import { ARTIFACTS, artifactPath, hasArtifact, readJsonArtifact, writeJsonArtifact, writeTextArtifact } from "../artifacts.js";
 import { gbBuild, gbPreview, previewOptionsFromTokens } from "../gb.js";
 import { designSystemPrompt } from "../prompts.js";
@@ -31,18 +31,20 @@ export const designStage: Stage = {
   async run(ctx) {
     const spec = readJsonArtifact(ctx, "siteSpecJson", parseSiteSpec);
     mkdirSync(join(ctx.siteDir, "design"), { recursive: true });
-    const r = await deps.runAgent(ctx, {
+    const r = await runValidated(deps.runAgent, ctx, {
       stage: "design",
       systemPrompt: designSystemPrompt(ctx.config),
       prompt: designUserPrompt(spec),
       allowedTools: ["Read", "Write", TOOL_GB_BUILD, TOOL_GB_PREVIEW],
       outputFormat: { type: "json_schema", schema: toJsonSchema(DesignTokensShape) },
       maxTurns: 40,
+    }, (a) => {
+      for (const key of ["designSystemMd", "previewTree"] as const) {
+        if (!hasArtifact(ctx, key)) throw new Error(`${ARTIFACTS[key]} was not written — write it with Write, then answer with the tokens`);
+      }
+      return parseDesignTokens(a.structured);
     });
-    const tokens = parseDesignTokens(r.structured);
-    for (const key of ["designSystemMd", "previewTree"] as const) {
-      if (!hasArtifact(ctx, key)) throw new Error(`design stage ended without writing ${ARTIFACTS[key]} — re-run with: faktory run ${ctx.slug} --only design`);
-    }
+    const tokens = r.value;
     const tree = readJsonArtifact(ctx, "previewTree", (u) => u);
     const markup = await deps.gbBuild(ctx.config, tree);
     writeTextArtifact(ctx, "previewMarkup", markup);

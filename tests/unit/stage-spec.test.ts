@@ -51,4 +51,16 @@ describe("spec stage", () => {
     expect(await specStage.onApprove!(c)).toMatch(/re-synced/);
     expect(readJsonArtifact(c, "siteSpecJson", parseSiteSpec).identity.name).toBe("Maison Rivet & Fils");
   });
+  it("retries once in the same session when the structured spec fails validation", async () => {
+    const c = await ctx();
+    const bad = structuredClone(fixture); bad.sitemap[1].kind = "home";
+    const run = vi.spyOn(deps, "runAgent")
+      .mockResolvedValueOnce({ text: "", structured: bad, costUsd: 0.4, sessionId: "sess-1", numTurns: 5 })
+      .mockResolvedValueOnce({ text: "", structured: fixture, costUsd: 0.1, sessionId: "sess-1", numTurns: 2 });
+    const msg = await specStage.run(c);
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[1][1].resume).toBe("sess-1");
+    expect(run.mock.calls[1][1].prompt).toMatch(/exactly one/);
+    expect(msg).toMatch(/\$0\.50/);
+  });
 });

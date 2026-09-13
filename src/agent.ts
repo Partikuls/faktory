@@ -57,13 +57,18 @@ export function remainingBudget(ctx: SiteContext): number {
 
 export type AgentRun = { text: string; structured?: unknown; costUsd: number; sessionId?: string; numTurns: number };
 
+export type AgentOptions = {
+  stage: string; prompt: string; systemPrompt?: string; allowedTools: string[];
+  outputFormat?: { type: "json_schema"; schema: Record<string, unknown> };
+  maxTurns?: number; model?: string;
+  /** SDK session id of a previous run to continue (used by `runValidated` for the one retry). */
+  resume?: string;
+};
+export type AgentRunner = (ctx: SiteContext, opts: AgentOptions) => Promise<AgentRun>;
+
 export async function runAgent(
   ctx: SiteContext,
-  opts: {
-    stage: string; prompt: string; systemPrompt?: string; allowedTools: string[];
-    outputFormat?: { type: "json_schema"; schema: Record<string, unknown> };
-    maxTurns?: number; model?: string;
-  },
+  opts: AgentOptions,
 ): Promise<AgentRun> {
   const server = createFaktoryServer(ctx);
   let out: AgentRun | undefined;
@@ -82,6 +87,7 @@ export async function runAgent(
       maxTurns: opts.maxTurns ?? 60,
       maxBudgetUsd: remainingBudget(ctx),
       outputFormat: opts.outputFormat,
+      resume: opts.resume,
     },
   })) {
     if (message.type === "assistant") {
@@ -104,4 +110,39 @@ export async function runAgent(
   }
   if (!out) throw new Error(`Agent stage "${opts.stage}" produced no result`);
   return out;
+}
+
+export function retryPrompt(error: string): string {
+  return [
+    "Ta réponse précédente n'a pas passé la validation :",
+    error,
+    "Corrige uniquement ces points et réponds à nouveau, dans le même format. Ne change rien d'autre.",
+  ].join("\n");
+}
+
+export type ValidatedRun<T> = { value: T; costUsd: number; attempts: 1 | 2; run: AgentRun };
+
+/**
+ * Run an agent and validate its output; on a validation error, resume the same session once with the error
+ * (spec: "retry 1 fois sur erreur structurée"). The cost of both attempts is summed.
+ */
+export async function runValidated<T>(
+  run: AgentRunner, ctx: SiteContext, opts: AgentOptions, validate: (r: AgentRun) => T | Promise<T>,
+): Promise<ValidatedRun<T>> {
+  const first = await run(ctx, opts);
+  let error: string;
+  try {
+    return { value: await validate(first), costUsd: first.costUsd, attempts: 1, run: first };
+  } catch (err) {
+    error = err instanceof Error ? err.message : String(err);
+  }
+  console.warn(`↻ ${opts.stage}: output failed validation, retrying once — ${error.split("\n")[0].slice(0, 200)}`);
+  const second = await run(ctx, { ...opts, prompt: retryPrompt(error), resume: first.sessionId });
+  const costUsd = Math.round((first.costUsd + second.costUsd) * 10000) / 10000;
+  try {
+    return { value: await validate(second), costUsd, attempts: 2, run: second };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`${opts.stage}: output still invalid after one retry — ${message}`);
+  }
 }
