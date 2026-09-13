@@ -51,13 +51,17 @@ export function qaUserPrompt(spec: SiteSpec, page: Page, check: PageCheck, tiles
   ].join("\n");
 }
 
-/** Second round, same session: the page was republished, the screenshots overwritten at the same paths. */
-export function qaResumePrompt(check: PageCheck): string {
+/** Second round, same session: the page was republished, the screenshots overwritten at the same paths (but a shorter page
+ *  has fewer tiles now, so list the captures again rather than assume the first round's list still matches). */
+export function qaResumePrompt(check: PageCheck, slug: string, tiles: Record<Viewport, number>): string {
   return [
     "La page a été republiée avec ton arbre corrigé et recontrôlée ; les captures ont été refaites aux mêmes chemins (relis-les).",
     "",
     "## Défauts relevés automatiquement après correction",
     ...issueLines(check),
+    "",
+    "## Captures (refaites, à relire dans cet ordre)",
+    ...screenshotList(slug, tiles).map((p) => `- \`${p}\``),
     "",
     "Relis la page, corrige ce qui reste si c'est sûr (Write + `gb_build`), puis réponds avec l'objet JSON demandé.",
   ].join("\n");
@@ -98,7 +102,7 @@ export async function reviewPage(
     const r = await runValidated(deps.runAgent, ctx, {
       stage: "qa",
       systemPrompt: loadPrompt("qa"),
-      prompt: opts.resume ? qaResumePrompt(check) : qaUserPrompt(spec, page, check, tiles),
+      prompt: opts.resume ? qaResumePrompt(check, page.slug, tiles) : qaUserPrompt(spec, page, check, tiles),
       allowedTools: QA_TOOLS,
       outputFormat: { type: "json_schema", schema: toJsonSchema(QaVerdictShape) },
       maxTurns: QA_MAX_TURNS,

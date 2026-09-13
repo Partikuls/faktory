@@ -115,13 +115,26 @@ describe.skipIf(!process.env.FAKTORY_DOCKER || !chromiumInstalled())("qa stage o
     expect(html).toContain("gb-element-"); // still a GenerateBlocks page
   }, 600_000);
 
-  it("reuses the ok reviews on a second run and only re-reviews the page that was fixed", async () => {
+  it("reuses every unchanged page on a second run, and re-reviews only the page whose tree changed", async () => {
+    // Change one page's tree on disk since the first run — same mechanism a hand-edit or a `pages` re-run would
+    // use — so the hash-keyed reuse rule (commit 6c1e2ce) must pick it out for re-review, whatever its verdict.
+    const treePath = pageTreePath(ctx, "nos-produits");
+    const tree: PageTree = JSON.parse(readFileSync(treePath, "utf8"));
+    (tree[0].innerBlocks as GbNode[]).push({ type: "text", tagName: "p", content: "Nouveau paragraphe QA." });
+    writeFileSync(treePath, JSON.stringify(tree, null, 2));
+
     const review = vi.spyOn(qaDeps, "reviewPage").mockImplementation(async (c, _s, page): Promise<ReviewResult> => ({
       verdict: { verdict: "ok", summary: "Rien à signaler.", issues: [] }, treeChanged: false, tree: JSON.parse(readFileSync(pageTreePath(c, page.slug), "utf8")), costUsd: 0, attempts: 1, sessionId: "s3",
     }));
     const state = await runSite(config, "itqa", { only: "qa" });
     expect(state.stages.qa.status, state.stages.qa.message).toBe("done");
-    expect(review.mock.calls.map((k: any) => k[2].slug)).toEqual(["accueil"]);
-    expect(state.stages.qa.message).toContain("5 reviewed (5 ok, 0 fixed, 0 needs human, 4 reused)");
+    expect(review.mock.calls.map((k: any) => k[2].slug)).toEqual(["nos-produits"]);
+    expect(state.stages.qa.message).toContain("5 reviewed (");
+    expect(state.stages.qa.message).toContain(", 4 reused)");
+    expect(state.stages.qa.message!.endsWith("— $0.00")).toBe(true);
+
+    const report = parseQaReport(JSON.parse(readFileSync(qaReportJsonPath(ctx), "utf8")));
+    const home = report.pages.find((p) => p.slug === "accueil")!;
+    expect(home).toMatchObject({ reused: true, verdict: "fixed" }); // carried forward from the first run's fix
   }, 600_000);
 });

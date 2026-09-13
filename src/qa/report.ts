@@ -58,6 +58,7 @@ export function renderQaReport(report: QaReport, siteName: string): string {
     `Généré le ${report.generatedAt.slice(0, 10)} sur ${report.siteUrl}.`,
     "",
     summary,
+    ...(report.partial ? [`Rapport partiel : ${report.failedUrls.length} URL(s) en échec — ${report.failedUrls.join(", ")}`] : []),
     "",
     ...report.pages.map(pageSection),
   ].join("\n");

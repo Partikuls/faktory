@@ -144,6 +144,10 @@ export const QaReportSchema = z.strictObject({
   costUsd: z.number().min(0),
   totals: QaTotalsSchema,
   pages: z.array(QaPageSchema),
+  /** True when one or more targets failed (non-budget error): `pages` then covers only the fulfilled ones. */
+  partial: z.boolean().default(false),
+  /** URLs of the failed targets when `partial` is true; empty otherwise. */
+  failedUrls: z.array(z.string()).default([]),
 });
 export type QaReport = z.infer<typeof QaReportSchema>;
 

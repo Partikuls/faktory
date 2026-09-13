@@ -188,13 +188,27 @@ describe("qa stage", () => {
     await qaStage.run(c);
     expect(s.review.mock.calls.map((k: any) => k[2].slug)).toEqual(["contact"]);
   });
-  it("fails the stage on a non-200 url, after checking the others, and closes the browser", async () => {
+  it("fails the stage on a non-200 url, after checking the others, closes the browser, and still writes a partial report", async () => {
     const c = await ctx();
     const s = spies({ status: { "la-maison": 500 } });
     await expect(qaStage.run(c)).rejects.toThrow(/1 url\(s\) failed: la-maison — fix the site and re-run: faktory run boul --only qa/);
     expect(s.check).toHaveBeenCalledTimes(9);
     expect(s.close).toHaveBeenCalledTimes(1);
-    expect(existsSync(qaReportJsonPath(c))).toBe(false);
+    expect(existsSync(qaReportJsonPath(c))).toBe(true);
+    const report = parseQaReport(JSON.parse(readFileSync(qaReportJsonPath(c), "utf8")));
+    expect(report.partial).toBe(true);
+    const failedTarget = qaTargets(c, spec).find((t) => t.slug === "la-maison")!;
+    expect(report.failedUrls).toEqual([failedTarget.url]);
+    expect(report.pages).toHaveLength(8);
+    expect(report.pages.some((p) => p.slug === "la-maison")).toBe(false);
+  });
+  it("throws when a page and an article share the same slug", async () => {
+    const c = await ctx();
+    const colliding = parseSiteSpec({
+      ...spec,
+      blog: { ...spec.blog, articles: [...spec.blog.articles, { title: "Contact", theme: spec.blog.articles[0].theme, keywords: ["contact"] }] },
+    });
+    expect(() => qaTargets(c, colliding)).toThrow(/qa targets share the slug "contact" \(a page and an article, or two articles\) — rename one title in SITE-SPEC.md and run: faktory resync contact/);
   });
   it("fails before any review when the browser is missing", async () => {
     const c = await ctx();
@@ -210,6 +224,7 @@ describe("qa stage", () => {
     await expect(qaStage.run(c)).rejects.toThrow(/Cost budget reached/);
     expect(s.review).not.toHaveBeenCalled();
     expect(s.close).toHaveBeenCalledTimes(1);
+    expect(existsSync(qaReportJsonPath(c))).toBe(false);
   });
   it("refuses a corrupt report.json with a delete hint", async () => {
     const c = await ctx();

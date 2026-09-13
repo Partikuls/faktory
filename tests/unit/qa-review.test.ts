@@ -59,11 +59,14 @@ describe("qa prompts", () => {
     expect(p).toContain("design-system.md");
     expect(qaUserPrompt(spec, home, check(), TILES)).toContain("Aucun défaut automatique.");
   });
-  it("resume prompt says the page was republished and lists the remaining automated issues", () => {
-    const p = qaResumePrompt({ ...check(), missingAlt: 1 });
+  it("resume prompt says the page was republished, lists the remaining automated issues, and the recaptured screenshots", () => {
+    const p = qaResumePrompt({ ...check(), missingAlt: 1 }, "accueil", TILES);
     expect(p).toContain("republiée");
     expect(p).toContain("- 1 image(s) sans alt");
-    expect(qaResumePrompt(check())).toContain("Aucun défaut automatique.");
+    expect(p).toContain("Captures (refaites, à relire dans cet ordre)");
+    expect(p).toContain("qa/accueil.desktop.png");
+    expect(p).toContain("qa/accueil.mobile.4.png");
+    expect(qaResumePrompt(check(), "accueil", TILES)).toContain("Aucun défaut automatique.");
   });
 });
 

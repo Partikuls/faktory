@@ -33,12 +33,14 @@ describe("linkCandidates", () => {
 describe.skipIf(!chromiumInstalled())("checkPage against a local page (chromium)", () => {
   let server: Server; let origin = "";
   let extraServer: Server; let extraOrigin = "";
+  let resizeHeight = 3000;
   const dir = mkdtempSync(join(tmpdir(), "fk-qabrowser-"));
   beforeAll(async () => {
     server = createServer((req, res) => {
       const url = req.url ?? "/";
       if (url === "/" || url === "/ok/") { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end(html(origin, extraOrigin)); return; }
       if (url === "/ok.png") { res.writeHead(200, { "content-type": "image/png" }); res.end(PNG); return; }
+      if (url === "/resize/") { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end(`<!doctype html><html><body><div style="height:${resizeHeight}px">x</div></body></html>`); return; }
       res.writeHead(404, { "content-type": "text/plain" }); res.end("nope");
     });
     // A second origin (different port) so a cross-origin resource failure (e.g. a broken third-party
@@ -91,5 +93,22 @@ describe.skipIf(!chromiumInstalled())("checkPage against a local page (chromium)
       expect(tiles.mobile).toBeGreaterThanOrEqual(1);
       for (const f of [targets.desktop, targets.mobile, targets.tile("desktop", 1), targets.tile("mobile", 1)]) expect(existsSync(f), f).toBe(true);
     } finally { await browser.close(); }
+  }, 60_000);
+
+  it("drops stale tiles left over from a taller previous run", async () => {
+    const browser = await launchBrowser();
+    try {
+      const targets = { desktop: join(dir, "resize.desktop.png"), mobile: join(dir, "resize.mobile.png"), tile: (v: "desktop" | "mobile", n: number) => join(dir, `resize.${v}.${n}.png`) };
+      resizeHeight = 3000;
+      const first = await checkPage(browser, `${origin}/resize/`, targets, new Map());
+      expect(first.tiles.desktop).toBeGreaterThan(1);
+      const staleTile = targets.tile("desktop", first.tiles.desktop);
+      expect(existsSync(staleTile)).toBe(true);
+      resizeHeight = 300;
+      const second = await checkPage(browser, `${origin}/resize/`, targets, new Map());
+      expect(second.tiles.desktop).toBeLessThan(first.tiles.desktop);
+      expect(existsSync(staleTile)).toBe(false);
+      expect(existsSync(targets.tile("desktop", second.tiles.desktop))).toBe(true);
+    } finally { await browser.close(); resizeHeight = 3000; }
   }, 60_000);
 });

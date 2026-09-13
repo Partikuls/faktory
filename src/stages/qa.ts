@@ -27,10 +27,16 @@ export type Target = { slug: string; kind: QaPage["kind"]; url: string; page?: P
 
 /** Every sitemap page (in order) then every article of the spec (spec decision 2). */
 export function qaTargets(ctx: SiteContext, spec: SiteSpec): Target[] {
-  return [
+  const targets = [
     ...spec.sitemap.map((p): Target => ({ slug: p.slug, kind: p.kind, url: pageUrl(ctx, p), page: p })),
     ...spec.blog.articles.map((a): Target => { const slug = articleSlug(a.title); return { slug, kind: "article", url: `${siteUrl(ctx)}/${slug}/` }; }),
   ];
+  const seen = new Set<string>();
+  for (const t of targets) {
+    if (seen.has(t.slug)) throw new Error(`qa targets share the slug "${t.slug}" (a page and an article, or two articles) — rename one title in SITE-SPEC.md and run: faktory resync ${t.slug}`);
+    seen.add(t.slug);
+  }
+  return targets;
 }
 
 function writeCheck(ctx: SiteContext, slug: string, check: PageCheck): void {
@@ -106,11 +112,18 @@ export const qaStage: Stage = {
     for (const r of results) {
       if (r.status === "rejected" && r.reason instanceof Error && r.reason.message.includes("Cost budget reached")) throw r.reason;
     }
+
+    // Non-budget failures still get a report: it covers the fulfilled pages, flagged partial, so a failed url
+    // never discards the rest of the run's findings.
+    const pages = results.filter((r): r is PromiseFulfilledResult<QaPage> => r.status === "fulfilled").map((r) => r.value);
+    const failedUrls = targets.filter((t) => failed.includes(t.slug)).map((t) => t.url);
+    const report: QaReport = {
+      generatedAt: new Date().toISOString(), siteUrl: siteUrl(ctx), costUsd: round4(ctx.state.costUsd - startCost),
+      totals: computeTotals(pages), pages, partial: failed.length > 0, failedUrls,
+    };
+    writeQaReport(ctx, report, spec.identity.name);
     if (failed.length) throw new Error(`${failed.length} url(s) failed: ${failed.join(", ")} — fix the site and re-run: faktory run ${ctx.slug} --only qa`);
 
-    const pages = results.map((r) => (r as PromiseFulfilledResult<QaPage>).value);
-    const report: QaReport = { generatedAt: new Date().toISOString(), siteUrl: siteUrl(ctx), costUsd: round4(ctx.state.costUsd - startCost), totals: computeTotals(pages), pages };
-    writeQaReport(ctx, report, spec.identity.name);
     const t = report.totals, reused = pages.filter((p) => p.reused).length;
     return `qa: ${t.urls} urls checked; ${t.reviewed} reviewed (${t.ok} ok, ${t.fixed} fixed, ${t.needsHuman} needs human${reused ? `, ${reused} reused` : ""}); ${t.remainingIssues} remaining issue${t.remainingIssues === 1 ? "" : "s"} — $${report.costUsd.toFixed(2)}`;
   },

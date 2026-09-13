@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import type { SiteContext } from "../docker.js";
 import { MAX_LINKS, MAX_TILES, VIEWPORTS, screenshotPath, type PageCheck, type Viewport } from "../schemas/qa.js";
@@ -73,7 +73,8 @@ async function scrollFully(page: Page): Promise<void> {
 /** Full-page screenshot plus viewport-height tiles (max MAX_TILES); returns the number of tiles written. */
 async function capture(page: Page, viewport: Viewport, targets: ScreenshotTargets): Promise<number> {
   const full = viewport === "desktop" ? targets.desktop : targets.mobile;
-  mkdirSync(dirname(full), { recursive: true });
+  const dir = dirname(full);
+  mkdirSync(dir, { recursive: true });
   await page.screenshot({ path: full, fullPage: true });
   const { width, height } = VIEWPORTS[viewport];
   const total = await page.evaluate(() => document.documentElement.scrollHeight);
@@ -81,6 +82,13 @@ async function capture(page: Page, viewport: Viewport, targets: ScreenshotTarget
   for (let i = 0; i < tiles; i++) {
     const h = Math.max(1, Math.min(height, total - i * height));
     await page.screenshot({ path: targets.tile(viewport, i + 1), fullPage: true, clip: { x: 0, y: i * height, width, height: h } });
+  }
+  // A shorter page on a re-run needs fewer tiles: drop any tile left over from a previous, taller version.
+  const prefix = basename(full, ".png"); // "<slug>.<viewport>"
+  const staleRe = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.(\\d+)\\.png$`);
+  for (const name of readdirSync(dir)) {
+    const m = staleRe.exec(name);
+    if (m && Number(m[1]) > tiles) rmSync(join(dir, name));
   }
   return tiles;
 }
@@ -107,8 +115,8 @@ export async function checkPage(
       consoleErrors.push(m.text().slice(0, 300));
     });
     page.on("pageerror", (e) => pageErrors.push(String(e.message ?? e).slice(0, 300)));
-    page.on("requestfailed", (r) => { if (r.url().startsWith(origin)) failedRequests.push({ url: r.url(), status: 0 }); });
     // Chromium requests /favicon.ico on its own; a site without one is not a page defect.
+    page.on("requestfailed", (r) => { if (r.url().startsWith(origin) && new URL(r.url()).pathname !== "/favicon.ico") failedRequests.push({ url: r.url(), status: 0 }); });
     page.on("response", (r) => {
       if (!r.url().startsWith(origin) || r.url() === url || r.status() < 400 || new URL(r.url()).pathname === "/favicon.ico") return;
       failedRequests.push({ url: r.url(), status: r.status() });

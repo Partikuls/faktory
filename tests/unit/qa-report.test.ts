@@ -40,6 +40,15 @@ describe("renderQaReport", () => {
     expect(md).toContain("1 défaut restant");
     expect(md).toContain("(0 ok, 0 corrigée, 1 à revoir), 1 défaut restant");
   });
+  it("adds the partial-report line right after the summary, listing the failed urls", () => {
+    const r = report();
+    r.partial = true;
+    r.failedUrls = ["http://localhost:8101/la-maison/", "http://localhost:8101/actualites/"];
+    const md = renderQaReport(r, "Maison Rivet");
+    expect(md).toContain("Rapport partiel : 2 URL(s) en échec — http://localhost:8101/la-maison/, http://localhost:8101/actualites/");
+    expect(md.indexOf("Rapport partiel")).toBeGreaterThan(md.indexOf("$1.23"));
+    expect(md.indexOf("Rapport partiel")).toBeLessThan(md.indexOf("## /contact/"));
+  });
   it("writeQaReport writes both files", async () => {
     const config = loadConfig(mkdtempSync(join(tmpdir(), "fk-qareport-")));
     await initSite(config, { slug: "boul", briefPath: "fixtures/briefs/boulangerie.md" });
