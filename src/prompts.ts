@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { FaktoryConfig } from "./config.js";
 import { pluginPath } from "./agent.js";
 
-export type PromptName = "spec" | "design" | "pages" | "plugins" | "content";
+export type PromptName = "spec" | "design" | "pages" | "plugins" | "content" | "qa";
 
 export function loadPrompt(name: PromptName): string {
   return readFileSync(fileURLToPath(new URL(`./prompts/${name}.md`, import.meta.url)), "utf8");
