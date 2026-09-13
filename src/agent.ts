@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { join, resolve, sep } from "node:path";
 import { query, type HookCallback, type PreToolUseHookInput } from "@anthropic-ai/claude-agent-sdk";
 import type { FaktoryConfig } from "./config.js";
@@ -41,6 +42,17 @@ export function effectiveAllowedTools(tools: string[]): string[] {
   return Array.from(new Set([...tools, "Skill"]));
 }
 
+/** A fresh `faktory-<hex>` name for one agent run's in-process MCP server, so concurrent runs don't collide on the canonical `"faktory"` name. */
+export function uniqueServerName(): string {
+  return `${FAKTORY_SERVER}-${randomBytes(4).toString("hex")}`;
+}
+
+/** Rewrite canonical `mcp__faktory__<tool>` allowedTools entries to the given per-run server name; other entries pass through unchanged. */
+export function remapTools(tools: string[], serverName: string): string[] {
+  const prefix = `mcp__${FAKTORY_SERVER}__`;
+  return tools.map((t) => (t.startsWith(prefix) ? `mcp__${serverName}__${t.slice(prefix.length)}` : t));
+}
+
 export const FAKTORY_SKILLS = ["generatepress-generateblocks", "wp-plugin-development", "wp-block-development", "wp-wpcli-and-ops"] as const;
 
 export function pluginSkillNames(): string[] {
@@ -70,7 +82,8 @@ export async function runAgent(
   ctx: SiteContext,
   opts: AgentOptions,
 ): Promise<AgentRun> {
-  const server = createFaktoryServer(ctx);
+  const serverName = uniqueServerName();
+  const server = createFaktoryServer(ctx, serverName);
   let out: AgentRun | undefined;
   for await (const message of query({
     prompt: opts.prompt,
@@ -78,11 +91,11 @@ export async function runAgent(
       cwd: ctx.siteDir,
       model: resolveModel(ctx.config, opts.stage, opts.model),
       systemPrompt: opts.systemPrompt,
-      allowedTools: effectiveAllowedTools(opts.allowedTools),
+      allowedTools: effectiveAllowedTools(remapTools(opts.allowedTools, serverName)),
       settingSources: [],
       skills: pluginSkillNames(),
       plugins: [{ type: "local", path: pluginPath(ctx.config) }],
-      mcpServers: { [FAKTORY_SERVER]: server },
+      mcpServers: { [serverName]: server },
       hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir)] }] },
       maxTurns: opts.maxTurns ?? 60,
       maxBudgetUsd: remainingBudget(ctx),
