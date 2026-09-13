@@ -22,6 +22,8 @@ npm run faktory -- approve boulangerie      # re-syncs site-spec.json if you edi
 npm run faktory -- run boulangerie          # design → stops: open preview.html, edit design-system.md
 npm run faktory -- approve boulangerie      # re-syncs design-tokens.json if you edited the markdown
 npm run faktory -- run boulangerie          # provision: WP + GP stack, identity, pages, menu, tokens, footer
+npm run faktory -- run boulangerie          # provision → pages: one agent per page (home first, then 3 in parallel), compiled + published by Faktory
+npm run faktory -- run boulangerie --only pages --max-cost 15
 npm run faktory -- run boulangerie --only design --max-cost 10
 npm run faktory -- approve boulangerie --max-cost 10
 npm run faktory -- resync boulangerie       # re-syncs any checkpoint JSON whose .md you edited after approve (also --max-cost)
@@ -39,12 +41,18 @@ Site URL: `http://localhost:<port>` (ports start at 8100). Admin: `admin` / pass
 | `SITE-SPEC.md` / `site-spec.json` | spec stage | Edit the `.md`; `approve` or `resync` re-extracts the JSON when the `.md` is newer |
 | `design-system.md` / `design-tokens.json` / `preview.html` | design stage | Edit the `.md` (tokens section included); `approve` or `resync` re-extracts the JSON and re-renders the preview |
 | `design/preview.gb.json`, `design/preview.gb.html` | design stage | Intermediate gb_build tree and markup |
+| `pages/<slug>.gb.json` / `pages/<slug>.html` | pages stage | Edit the `.gb.json` (gb_build tree); the next `run --only pages` recompiles and republishes it without any LLM call. Delete it to regenerate the page. |
+
+### Markers for later stages
+Sections whose content comes from a later stage carry an HTML-comment marker inside a `raw` node of the tree: `<!-- faktory:feature:<id> -->` after the 3 example cards of a `custom-query` section (replaced by the plugin's block in the plugins stage) and `<!-- faktory:form:<id> -->` in `form`/`contact` sections (replaced by the Gravity Forms shortcode in the content stage). Later stages edit the `.gb.json`, recompile and republish; the tree stays the source of truth. The `blog` page gets no generated content: GeneratePress renders the posts loop there.
 
 ### Cost
-`maxCostUsd` in `faktory.config.json` (default 40) caps the cumulated cost of a site; `run --max-cost <usd>` overrides it for one invocation. The SDK also receives the remaining budget as `maxBudgetUsd`. Measured on the boulangerie brief: spec ≈ $0.52 (+ ≈$0.31 for a re-sync triggered by editing `SITE-SPEC.md`), design ≈ $0.90–$1.41 per attempt, provision ≈ $0 (no LLM calls); cumulative cost through a completed provision was $4.34 (including ≈$2.3 spent on two earlier failed design attempts before the design stage was fixed to compile the preview itself).
+`maxCostUsd` in `faktory.config.json` (default 40) caps the cumulated cost of a site; `run --max-cost <usd>` overrides it for one invocation. The SDK also receives the remaining budget as `maxBudgetUsd`. Measured on the boulangerie brief: spec ≈ $0.52 (+ ≈$0.31 for a re-sync triggered by editing `SITE-SPEC.md`), design ≈ $0.90–$1.41 per attempt, provision ≈ $0 (no LLM calls); cumulative cost through a completed provision was $4.34 (including ≈$2.3 spent on two earlier failed design attempts before the design stage was fixed to compile the preview itself). The `pages` stage cost $4.82 for the 5 generated pages (accueil, nos-produits, commandes-evenements, la-maison, contact; blog skipped), ≈$0.96 per page with 0 retries; cumulative cost after `pages` was $9.17.
+
+Every agent stage validates its output (zod + file checks) and, on failure, resumes the same session once with the validation errors before failing the stage.
 
 ## Stages
-spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Other stages are marked "skipped (not implemented)".
+spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Phase 3 implements `pages`. Other stages ("plugins", "content", "qa", "export") are marked "skipped (not implemented)".
 
 ## Tests
 ```bash
