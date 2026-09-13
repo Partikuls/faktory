@@ -69,7 +69,7 @@ const HEX_RE = /#[0-9a-fA-F]{3,8}\b/;
 
 function hexIssues(value: unknown, at: string, issues: string[]): void {
   if (typeof value === "string") {
-    const m = value.match(HEX_RE);
+    const m = value.replace(/url\([^)]*\)/g, "").match(HEX_RE);
     if (m) issues.push(`${at}: hex color ${m[0]} — use var(--base), var(--accent)… instead`);
   } else if (value && typeof value === "object") {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) hexIssues(v, `${at}.${k}`, issues);

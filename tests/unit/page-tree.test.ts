@@ -54,6 +54,16 @@ describe("validatePageTree", () => {
     expect(issues).toHaveLength(1);
     expect(issues[0]).toMatch(/\[0\]\.styles\.@media \(max-width:767px\)\.color: hex color #333/);
   });
+  it("ignores url(#id) SVG references but still flags a real hex color alongside one", () => {
+    const t = fixture();
+    t[0].styles = { ...t[0].styles, fill: "url(#fade)" };
+    expect(validatePageTree(t, home)).toEqual([]);
+    const t2 = fixture();
+    t2[0].styles = { ...t2[0].styles, background: "url(#fade) #fade" };
+    const issues = validatePageTree(t2, home);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toContain("hex color #fade");
+  });
   it("flags zero or two h1", () => {
     const t = fixture();
     const h1 = t[0].innerBlocks![0].innerBlocks![0].innerBlocks![1];
