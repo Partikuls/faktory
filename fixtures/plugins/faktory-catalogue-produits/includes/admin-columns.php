@@ -57,6 +57,10 @@ function faktory_catalogue_produits_orderby( WP_Query $query ): void {
 	if ( ! is_admin() || ! $query->is_main_query() || 'faktory_prix' !== $query->get( 'orderby' ) ) {
 		return;
 	}
+	// pre_get_posts touche toutes les listes : ne trier que celle de ce type de contenu.
+	if ( FAKTORY_CATALOGUE_PRODUITS_POST_TYPE !== $query->get( 'post_type' ) ) {
+		return;
+	}
 	$query->set( 'meta_key', faktory_catalogue_produits_meta_key( 'prix' ) );
 	$query->set( 'orderby', 'meta_value_num' );
 }

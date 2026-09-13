@@ -6,6 +6,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
+// Le plugin n'est pas chargé pendant la désinstallation : on ré-enregistre le type de contenu pour pouvoir lister ses entrées.
+register_post_type( 'produit' );
 $faktory_catalogue_produits_post_ids = get_posts(
 	array(
 		'post_type'      => 'produit',

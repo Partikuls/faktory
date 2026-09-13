@@ -70,7 +70,8 @@ function faktory_catalogue_produits_register_meta(): void {
 				'default'           => '',
 				'show_in_rest'      => true,
 				'sanitize_callback' => static fn( $value ): string => faktory_catalogue_produits_sanitize( $key, $value ),
-				'auth_callback'     => static fn(): bool => current_user_can( 'edit_posts' ),
+				// Signature WordPress : ( bool $allowed, string $meta_key, int $object_id, int $user_id, string $cap, array $caps ).
+				'auth_callback'     => static fn( bool $allowed, string $meta_key, int $object_id ): bool => current_user_can( 'edit_post', $object_id ),
 			)
 		);
 	}
