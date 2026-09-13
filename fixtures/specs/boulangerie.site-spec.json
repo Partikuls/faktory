@@ -69,7 +69,7 @@
       "seo": { "title": "Contact & horaires – Maison Rivet, Chantenay", "metaDescription": "Horaires d'ouverture, adresse et téléphone de la boulangerie Maison Rivet à Chantenay, Nantes. Écrivez-nous.", "keywords": ["boulangerie Chantenay horaires", "boulangerie Nantes contact"] },
       "sections": [
         { "type": "hours", "heading": "Horaires", "summary": "Horaires par jour." },
-        { "type": "contact", "heading": "Nous trouver", "summary": "Adresse, carte (placeholder), téléphone, email." },
+        { "type": "contact", "heading": "Nous trouver", "summary": "Adresse, carte (placeholder), téléphone, email.", "form": "contact" },
         { "type": "form", "heading": "Écrivez-nous", "summary": "Formulaire de contact simple.", "form": "contact" }
       ]
     }

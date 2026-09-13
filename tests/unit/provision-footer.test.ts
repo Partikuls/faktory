@@ -65,6 +65,11 @@ describe("footerTree", () => {
     expect(text).toContain("Pain &amp; Co");
     expect(text).not.toContain("Pain & Co");
   });
+  it("draws the bottom bar border with a palette variable, never an rgba white", () => {
+    const json = JSON.stringify(footerTree(spec, tokens));
+    expect(json).not.toMatch(/rgba\(/);
+    expect(json).toContain("color-mix(in srgb, var(--base-3) 18%, transparent)");
+  });
 });
 
 describe("installFooter", () => {

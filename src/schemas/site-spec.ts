@@ -12,8 +12,8 @@ export const Section = z.object({
   type: z.enum(SECTION_TYPES),
   heading: z.string().describe("Short French heading"),
   summary: z.string().describe("What the section shows, 1-3 sentences; copy hints allowed"),
-  feature: z.string().optional().describe("Feature id when type is custom-query"),
-  form: z.string().optional().describe("Form id when type is form or contact"),
+  feature: z.string().optional().describe("Feature id — required when type is custom-query"),
+  form: z.string().optional().describe("Form id — required when type is form or contact"),
 });
 
 export const Page = z.object({
@@ -28,6 +28,8 @@ export const Page = z.object({
   }),
   sections: z.array(Section).min(1),
 });
+
+export type Page = z.infer<typeof Page>;
 
 export const Feature = z.object({
   id: key,
@@ -95,8 +97,11 @@ export const SiteSpec = SiteSpecShape.superRefine((s, ctx) => {
     for (const sl of s.menus[m]) if (!slugs.has(sl)) ctx.addIssue({ code: "custom", path: ["menus", m], message: `menus.${m}: unknown page slug "${sl}"` });
   }
   s.sitemap.forEach((p, pi) => p.sections.forEach((sec, si) => {
-    if (sec.feature && !features.has(sec.feature)) ctx.addIssue({ code: "custom", path: ["sitemap", pi, "sections", si], message: `unknown feature "${sec.feature}"` });
-    if (sec.form && !forms.has(sec.form)) ctx.addIssue({ code: "custom", path: ["sitemap", pi, "sections", si], message: `unknown form "${sec.form}"` });
+    const path = ["sitemap", pi, "sections", si];
+    if (sec.type === "custom-query" && !sec.feature) ctx.addIssue({ code: "custom", path, message: `section "${sec.heading}" is custom-query but has no feature` });
+    if ((sec.type === "form" || sec.type === "contact") && !sec.form) ctx.addIssue({ code: "custom", path, message: `section "${sec.heading}" is ${sec.type} but has no form` });
+    if (sec.feature && !features.has(sec.feature)) ctx.addIssue({ code: "custom", path, message: `unknown feature "${sec.feature}"` });
+    if (sec.form && !forms.has(sec.form)) ctx.addIssue({ code: "custom", path, message: `unknown form "${sec.form}"` });
   }));
 });
 

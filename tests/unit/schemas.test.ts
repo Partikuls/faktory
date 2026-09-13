@@ -43,6 +43,19 @@ describe("SiteSpec", () => {
     bad.sitemap[2].slug = "Nos Produits";
     expect(() => parseSiteSpec(bad)).toThrow();
   });
+  it("rejects a custom-query section without a feature", () => {
+    const bad = structuredClone(spec);
+    const sec = bad.sitemap[0].sections.find((s: { type: string }) => s.type === "custom-query");
+    delete sec.feature;
+    expect(() => parseSiteSpec(bad)).toThrow(/custom-query but has no feature/);
+  });
+  it("rejects a form or contact section without a form", () => {
+    const bad = structuredClone(spec);
+    const contact = bad.sitemap.find((p: { kind: string }) => p.kind === "contact");
+    const sec = contact.sections.find((s: { type: string }) => s.type === "form");
+    delete sec.form;
+    expect(() => parseSiteSpec(bad)).toThrow(/form but has no form/);
+  });
 });
 
 describe("DesignTokens", () => {

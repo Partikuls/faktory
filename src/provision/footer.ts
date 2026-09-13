@@ -65,7 +65,7 @@ export function footerTree(spec: SiteSpec, tokens: DesignTokens, year: number = 
 
   const bar: Node = { type: "element", tagName: "div", styles: {
     maxWidth: "var(--gb-container-width)", marginLeft: "auto", marginRight: "auto", marginTop: `${step(6)}px`, paddingTop: `${step(4)}px`,
-    borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", justifyContent: "space-between", gap: `${step(3)}px`, fontSize: "14px", opacity: "0.7",
+    borderTop: "1px solid color-mix(in srgb, var(--base-3) 18%, transparent)", display: "flex", justifyContent: "space-between", gap: `${step(3)}px`, fontSize: "14px", opacity: "0.7",
     [MOBILE]: { flexDirection: "column" },
   }, innerBlocks: [
     text("p", `© ${year} ${esc(id.name)}`),
