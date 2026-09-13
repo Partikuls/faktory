@@ -55,6 +55,22 @@ function placementRe(id: string): RegExp {
   return new RegExp(`^<!-- wp:${name}( \\{.*\\})? /-->$`);
 }
 
+/**
+ * The placement checks that need no spec: no forbidden markup, and a self-closing block comment of the
+ * manifest's own block. Runs both on the plugins path (`validatePluginManifest`) and on the pages path
+ * (`readPluginManifests`), which reads manifests written by an earlier run.
+ */
+export function validatePlacements(m: PluginManifest): string[] {
+  const issues: string[] = [];
+  const re = placementRe(m.feature);
+  for (const [slug, markup] of Object.entries(m.placements)) {
+    const forbidden = markup.match(DENYLIST_RE);
+    if (forbidden) issues.push(`placements.${slug}: forbidden markup (${forbidden[0]})`);
+    if (!re.test(markup)) issues.push(`placements.${slug}: must be a self-closing block comment <!-- wp:${blockName(m.feature)} {...} /--> (got "${markup.slice(0, 80)}")`);
+  }
+  return issues;
+}
+
 /** Cross-checks the manifest against the spec's feature and sitemap. Returns human-readable issues (empty = valid). */
 export function validatePluginManifest(m: PluginManifest, spec: SiteSpec, feature: Feature): string[] {
   const issues: string[] = [];
@@ -66,13 +82,10 @@ export function validatePluginManifest(m: PluginManifest, spec: SiteSpec, featur
   if (m.shortcode !== shortcodeName(id)) issues.push(`shortcode must be "${shortcodeName(id)}" (got "${m.shortcode}")`);
   const expected = placementPages(spec, id);
   for (const slug of expected) if (!(slug in m.placements)) issues.push(`missing placement for page "${slug}" (its custom-query section shows ${id})`);
-  const re = placementRe(id);
-  for (const [slug, markup] of Object.entries(m.placements)) {
-    if (!expected.includes(slug)) { issues.push(`unexpected placement for page "${slug}" (no custom-query section for ${id} there)`); continue; }
-    const forbidden = markup.match(DENYLIST_RE);
-    if (forbidden) issues.push(`placements.${slug}: forbidden markup (${forbidden[0]})`);
-    if (!re.test(markup)) issues.push(`placements.${slug}: must be a self-closing block comment <!-- wp:${blockName(id)} {...} /--> (got "${markup.slice(0, 80)}")`);
+  for (const slug of Object.keys(m.placements)) {
+    if (!expected.includes(slug)) issues.push(`unexpected placement for page "${slug}" (no custom-query section for ${id} there)`);
   }
+  issues.push(...validatePlacements(m));
   return issues;
 }
 

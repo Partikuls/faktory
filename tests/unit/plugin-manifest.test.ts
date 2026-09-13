@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { parseSiteSpec } from "../../src/schemas/site-spec.js";
 import {
   kebab, pluginSlug, blockName, shortcodeName, RENDER_ATTR, PLUGINS_DIR, manifestRel, manifestPath, pluginDirRel, pluginDirPath,
-  requiredPluginFiles, parsePluginManifest, placementPages, validatePluginManifest, assertPluginManifest,
+  requiredPluginFiles, parsePluginManifest, placementPages, validatePluginManifest, validatePlacements, assertPluginManifest,
 } from "../../src/schemas/plugin-manifest.js";
 import type { SiteContext } from "../../src/docker.js";
 
@@ -79,5 +79,22 @@ describe("placementPages / validatePluginManifest", () => {
   it("accepts a placement without attributes", () => {
     const m = parsePluginManifest({ ...manifest, placements: { accueil: "<!-- wp:faktory/catalogue-produits /-->", "nos-produits": manifest.placements["nos-produits"] } });
     expect(validatePluginManifest(m, spec, feature)).toEqual([]);
+  });
+});
+
+describe("validatePlacements", () => {
+  it("accepts the fixture placements, spec or no spec", () => {
+    expect(validatePlacements(parsePluginManifest(manifest))).toEqual([]);
+  });
+  it("refuses forbidden markup and anything but a self-closing comment of the manifest's own block", () => {
+    const m = parsePluginManifest({ ...manifest, placements: { accueil: "[faktory_catalogue_produits]", "nos-produits": "<!-- wp:faktory/catalogue-produits /--><script>x</script>" } });
+    const issues = validatePlacements(m);
+    expect(issues).toContainEqual(expect.stringMatching(/placements.accueil: must be a self-closing block comment <!-- wp:faktory\/catalogue-produits/));
+    expect(issues).toContainEqual("placements.nos-produits: forbidden markup (<script)");
+  });
+  it("derives the expected block from the manifest feature, not from a spec", () => {
+    const m = parsePluginManifest({ ...manifest, feature: "zzz" });
+    expect(validatePlacements(m).every((i) => i.includes("<!-- wp:faktory/zzz"))).toBe(true);
+    expect(validatePlacements({ ...m, placements: { accueil: "<!-- wp:faktory/zzz /-->" } })).toEqual([]);
   });
 });

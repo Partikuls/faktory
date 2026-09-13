@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SiteContext } from "../docker.js";
 import { FEATURE_WRAPPER_ATTR, type GbNode, type PageTree } from "../schemas/page-tree.js";
-import { PLUGINS_DIR, parsePluginManifest, type PluginManifest } from "../schemas/plugin-manifest.js";
+import { PLUGINS_DIR, parsePluginManifest, validatePlacements, type PluginManifest } from "../schemas/plugin-manifest.js";
 
 /** Replace, in `nodes` (recursively), the first element carrying `data-faktory-feature=<id>` by `replacement`. Returns true when replaced. */
 function replaceWrapper(nodes: GbNode[], id: string, replacement: GbNode): boolean {
@@ -29,7 +29,11 @@ export function applyPlugins(tree: PageTree, manifests: PluginManifest[], pageSl
   return { tree: copy, applied };
 }
 
-/** Every `plugins/*.json` of the site, parsed, sorted by file name; [] when the directory does not exist. */
+/**
+ * Every `plugins/*.json` of the site, parsed and re-checked, sorted by file name; [] when the directory
+ * does not exist. The placements are markup this stage injects into pages, so they are validated here too:
+ * the spec-aware checks ran when the plugin was generated, but the file on disk may be from another run.
+ */
 export function readPluginManifests(ctx: SiteContext): PluginManifest[] {
   const dir = join(ctx.siteDir, PLUGINS_DIR);
   if (!existsSync(dir)) return [];
@@ -39,8 +43,12 @@ export function readPluginManifests(ctx: SiteContext): PluginManifest[] {
     let data: unknown;
     try { data = JSON.parse(readFileSync(join(dir, f), "utf8")); }
     catch (err) { throw new Error(`${rel} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`); }
-    try { out.push(parsePluginManifest(data)); }
+    let m: PluginManifest;
+    try { m = parsePluginManifest(data); }
     catch (err) { throw new Error(`${rel}: ${err instanceof Error ? err.message : String(err)}`); }
+    const issues = validatePlacements(m);
+    if (issues.length) throw new Error(`${rel}: ${issues.join("; ")}`);
+    out.push(m);
   }
   return out;
 }

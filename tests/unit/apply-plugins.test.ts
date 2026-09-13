@@ -46,7 +46,7 @@ describe("readPluginManifests", () => {
     const c = ctx();
     expect(readPluginManifests(c)).toEqual([]);
     mkdirSync(join(c.siteDir, "plugins"));
-    writeFileSync(join(c.siteDir, "plugins/zzz.json"), JSON.stringify({ ...manifest, feature: "zzz" }));
+    writeFileSync(join(c.siteDir, "plugins/zzz.json"), JSON.stringify({ ...manifest, feature: "zzz", placements: { accueil: "<!-- wp:faktory/zzz /-->" } }));
     writeFileSync(join(c.siteDir, "plugins/catalogue_produits.json"), JSON.stringify(manifest));
     writeFileSync(join(c.siteDir, "plugins/notes.txt"), "ignored");
     expect(readPluginManifests(c).map((m) => m.feature)).toEqual(["catalogue_produits", "zzz"]);
@@ -58,5 +58,14 @@ describe("readPluginManifests", () => {
     expect(() => readPluginManifests(c)).toThrow(/plugins\/bad.json is not valid JSON/);
     writeFileSync(join(c.siteDir, "plugins/bad.json"), JSON.stringify({ feature: "bad" }));
     expect(() => readPluginManifests(c)).toThrow(/plugins\/bad.json: Invalid plugin manifest/);
+  });
+  it("re-checks the placements of every manifest it reads (denylist and block-comment shape)", () => {
+    const c = ctx();
+    mkdirSync(join(c.siteDir, "plugins"));
+    const file = join(c.siteDir, "plugins/catalogue_produits.json");
+    writeFileSync(file, JSON.stringify({ ...manifest, placements: { accueil: '<!-- wp:faktory/catalogue-produits /--><script>alert(1)</script>' } }));
+    expect(() => readPluginManifests(c)).toThrow(/plugins\/catalogue_produits.json: .*placements.accueil: forbidden markup \(<script\)/);
+    writeFileSync(file, JSON.stringify({ ...manifest, placements: { accueil: "[faktory_catalogue_produits]" } }));
+    expect(() => readPluginManifests(c)).toThrow(/plugins\/catalogue_produits.json: placements.accueil: must be a self-closing block comment <!-- wp:faktory\/catalogue-produits/);
   });
 });
