@@ -136,6 +136,11 @@ export async function runAgent(
   return out;
 }
 
+/** Flattens a multi-line validation error (`head:\n- a\n- b`) into `head: a; b` for a single log line. */
+export function oneLine(error: string): string {
+  return error.split("\n").map((l) => l.replace(/^- /, "").trim()).filter(Boolean).join("; ").replace(/:; /g, ": ");
+}
+
 export function retryPrompt(error: string): string {
   return [
     "Ta réponse précédente n'a pas passé la validation :",
@@ -160,7 +165,7 @@ export async function runValidated<T>(
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
   }
-  console.warn(`↻ ${opts.stage}: output failed validation, retrying once — ${error.split("\n")[0].slice(0, 200)}`);
+  console.warn(`↻ ${opts.stage}: output failed validation, retrying once — ${oneLine(error).slice(0, 300)}`);
   let second: AgentRun;
   if (first.sessionId === undefined) {
     // Nothing to resume: replay the full original prompt plus the error instead of just the error.

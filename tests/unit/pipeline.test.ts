@@ -8,6 +8,7 @@ import { readState, setStage, writeState } from "../../src/state.js";
 import { runSite, approveSite, resyncSite, destroySite, loadContext, deps, registry, type Stage } from "../../src/pipeline.js";
 import { artifactPath, writeJsonArtifact, writeTextArtifact } from "../../src/artifacts.js";
 import { deps as resyncDeps } from "../../src/resync.js";
+import { addCost } from "../../src/agent.js";
 
 async function setup() {
   const config = loadConfig(mkdtempSync(join(tmpdir(), "fk-")));
@@ -69,6 +70,40 @@ describe("runSite", () => {
     await runSite(config, "pp", { stages: { spec: ok("spec", true) } });
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("SITE-SPEC.md is newer than site-spec.json"));
     warn.mockRestore();
+  });
+});
+
+describe("stage measurement", () => {
+  it("records the duration and the cost delta of every stage, including a failing one", async () => {
+    const config = await setup();
+    const spending: Stage = { name: "spec", run: async (ctx) => { ctx.state = addCost(ctx.state, 1.5); await new Promise((r) => setTimeout(r, 20)); return "spent"; } };
+    const failing: Stage = { name: "design", run: async (ctx) => { ctx.state = addCost(ctx.state, 0.25); throw new Error("kaboom"); } };
+    await expect(runSite(config, "pp", { stages: { spec: spending, design: failing } })).rejects.toThrow("kaboom");
+    const s = readState(siteDir(config, "pp"));
+    expect(s.stages.spec.costUsd).toBe(1.5);
+    expect(s.stages.spec.durationMs).toBeGreaterThanOrEqual(15);
+    expect(s.stages.design.status).toBe("failed");
+    expect(s.stages.design.costUsd).toBe(0.25);
+    expect(typeof s.stages.design.durationMs).toBe("number");
+    expect(s.costUsd).toBe(1.75);
+  });
+  it("records $0 for a stage that spends nothing", async () => {
+    const config = await setup();
+    const s = await runSite(config, "pp", { stages: { spec: ok("spec") } });
+    expect(s.stages.spec.costUsd).toBe(0);
+  });
+  it("approveSite keeps the run duration and adds the cost of onApprove to the stage", async () => {
+    const config = await setup();
+    const spec: Stage = {
+      name: "spec", checkpoint: true,
+      run: async (ctx) => { ctx.state = addCost(ctx.state, 0.5); return "ok"; },
+      onApprove: async (ctx) => { ctx.state = addCost(ctx.state, 0.3); return "re-synced"; },
+    };
+    const ran = await runSite(config, "pp", { stages: { spec } });
+    const s = await approveSite(config, "pp", { stages: { spec } });
+    expect(s.stages.spec.costUsd).toBe(0.8);
+    expect(s.stages.spec.durationMs).toBe(ran.stages.spec.durationMs);
+    expect(s.costUsd).toBe(0.8);
   });
 });
 

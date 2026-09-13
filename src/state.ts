@@ -11,7 +11,12 @@ const StageRecord = z.object({
   status: z.enum(STAGE_STATUSES),
   message: z.string().optional(),
   updatedAt: z.string().optional(),
+  /** USD spent by this stage's last run (agent cost delta), plus its `approve` re-sync for a checkpoint. */
+  costUsd: z.number().optional(),
+  /** Wall-clock duration of this stage's last `run`, approval time excluded. */
+  durationMs: z.number().int().nonnegative().optional(),
 });
+export type StageMeasure = { costUsd?: number; durationMs?: number };
 
 const SiteStateSchema = z.object({
   slug: z.string(),
@@ -43,10 +48,11 @@ export function writeState(siteDir: string, state: SiteState): void {
   writeFileSync(join(siteDir, STATE_FILE), JSON.stringify(state, null, 2) + "\n");
 }
 
-export function setStage(state: SiteState, name: StageName, status: StageStatus, message?: string): SiteState {
+/** Replaces the stage record; `measure` (cost, duration) is only kept when passed again, so a re-run starts from a clean record. */
+export function setStage(state: SiteState, name: StageName, status: StageStatus, message?: string, measure: StageMeasure = {}): SiteState {
   return {
     ...state,
-    stages: { ...state.stages, [name]: { status, message, updatedAt: new Date().toISOString() } },
+    stages: { ...state.stages, [name]: { status, message, updatedAt: new Date().toISOString(), ...measure } },
   };
 }
 

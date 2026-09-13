@@ -14,6 +14,7 @@ import { findVendorZip, VENDOR_PLUGINS } from "./provision/stack.js";
 import { TOOL_WP } from "./tools/server.js";
 import { phpstanBin } from "./php.js";
 import { chromiumInstalled } from "./qa/browser.js";
+import { renderStatus } from "./status.js";
 
 function asStage(v: string | undefined): StageName | undefined {
   if (v === undefined) return undefined;
@@ -59,6 +60,8 @@ program.command("resync <slug>").description("Re-sync any checkpoint JSON whose 
     const resynced = await resyncSite(withMaxCost(opts.maxCost), slug);
     console.log(resynced.length ? `Re-synced: ${resynced.join(", ")}` : "Nothing to re-sync.");
   });
+program.command("status <slug>").description("Show stage status, cost and duration of a site (no LLM, no Docker)")
+  .action(async (slug: string) => { console.log(renderStatus(loadContext(loadConfig(), slug).state)); });
 program.command("destroy <slug>").description("Stop containers, drop volumes, delete workspace")
   .option("--yes", "Skip confirmation")
   .option("--force", "Delete the workspace even if docker compose down fails")

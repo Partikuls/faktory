@@ -16,6 +16,13 @@ describe("runValidated", () => {
     expect(runner).toHaveBeenCalledTimes(1);
     expect(runner.mock.calls[0][1].resume).toBeUndefined();
   });
+  it("logs the validation reasons on one line, not just the error's first line", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const runner = vi.fn<AgentRunner>().mockResolvedValueOnce(run({ ok: false }, "s1")).mockResolvedValueOnce(run({ ok: true }, "s1"));
+    await runValidated(runner, ctx, opts, (x) => { if (!(x.structured as { ok: boolean }).ok) throw new Error("qa verdict is inconsistent:\n- verdict fixed but no issue fixed\n- tree unchanged"); return "fine"; });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("qa verdict is inconsistent: verdict fixed but no issue fixed; tree unchanged"));
+    warn.mockRestore();
+  });
   it("retries once in the same session with the validation error, summing the cost", async () => {
     const runner = vi.fn<AgentRunner>()
       .mockResolvedValueOnce(run({ ok: false }, "s1", 0.5))
