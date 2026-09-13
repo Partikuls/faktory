@@ -6,6 +6,7 @@ import { mapLimit } from "../concurrency.js";
 import { ensurePages } from "../provision/pages.js";
 import { generatePageTree, readPageTree } from "../pages/generate.js";
 import { compilePage, publishPage } from "../pages/publish.js";
+import { applyPlugins, readPluginManifests } from "../pages/apply-plugins.js";
 import { parseSiteSpec, type Page } from "../schemas/site-spec.js";
 import { parseDesignTokens } from "../schemas/design-tokens.js";
 import type { PageTree } from "../schemas/page-tree.js";
@@ -26,6 +27,8 @@ export const pagesStage: Stage = {
     // design/preview.gb.json reads in the prompt), not through this return value.
     readJsonArtifact(ctx, "designTokensJson", parseDesignTokens);
     if (!hasArtifact(ctx, "designSystemMd")) throw new Error(`design-system.md not found in ${ctx.siteDir} — run the design stage first (faktory run ${ctx.slug} --only design)`);
+    const manifests = readPluginManifests(ctx);
+    const applied = new Set<string>();
 
     const ids = await deps.ensurePages(ctx, spec);
     const home = spec.sitemap.find((p) => p.kind === "home")!; // SiteSpec guarantees exactly one
@@ -44,7 +47,9 @@ export const pagesStage: Stage = {
         const g = await deps.generatePageTree(ctx, spec, page, { homeSlug: page.kind === "home" ? undefined : home.slug });
         tree = g.tree; cost += g.costUsd; generated.push(page.slug);
       }
-      const markup = await deps.compilePage(ctx, page.slug, tree);
+      const a = applyPlugins(tree, manifests, page.slug);
+      a.applied.forEach((id) => applied.add(id));
+      const markup = await deps.compilePage(ctx, page.slug, a.tree);
       await deps.publishPage(ctx, ids[page.slug], markup);
       console.log(`  ✔ ${page.kind === "home" ? "/" : `/${page.slug}/`} published`);
     };
@@ -73,6 +78,7 @@ export const pagesStage: Stage = {
       throw new Error(`${failed.length} page(s) failed: ${failed.join(", ")} — fix or delete pages/<slug>.gb.json and re-run: faktory run ${ctx.slug} --only pages`);
     }
     const blog = skipped.length ? `; blog skipped (${skipped.join(", ")})` : "";
-    return `${pages.length} pages published (${pages.map((p) => p.slug).join(", ")}); ${generated.length} generated, ${reused.length} reused${blog} — $${cost.toFixed(2)}`;
+    const plugins = applied.size ? `; plugins applied (${Array.from(applied).sort().join(", ")})` : "";
+    return `${pages.length} pages published (${pages.map((p) => p.slug).join(", ")}); ${generated.length} generated, ${reused.length} reused${blog}${plugins} — $${cost.toFixed(2)}`;
   },
 };

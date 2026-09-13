@@ -127,4 +127,26 @@ describe("pages stage", () => {
     expect(errSpy).toHaveBeenCalledTimes(4);
     for (const call of errSpy.mock.calls) expect(call[0]).toContain("Cost budget reached");
   });
+  it("applies plugin manifests at compile time and keeps the tree on disk untouched", async () => {
+    const c = await ctx();
+    mkdirSync(join(c.siteDir, "pages"), { recursive: true });
+    copyFileSync("fixtures/pages/accueil.gb.json", pageTreePath(c, "accueil"));
+    mkdirSync(join(c.siteDir, "plugins"), { recursive: true });
+    copyFileSync("fixtures/plugins/catalogue_produits.manifest.json", join(c.siteDir, "plugins/catalogue_produits.json"));
+    const s = spies();
+    const msg = await pagesStage.run(c);
+    const compiled = s.compile.mock.calls.find((k: any) => k[1] === "accueil")![2] as PageTree;
+    expect(JSON.stringify(compiled)).toContain('"view\\":\\"featured\\"');
+    expect(JSON.stringify(compiled)).not.toContain("data-faktory-feature");
+    expect(readFileSync(pageTreePath(c, "accueil"), "utf8")).toContain("data-faktory-feature");
+    expect(msg).toMatch(/; plugins applied \(catalogue_produits\) — \$/);
+  });
+  it("fails fast on an invalid manifest before generating anything", async () => {
+    const c = await ctx();
+    mkdirSync(join(c.siteDir, "plugins"), { recursive: true });
+    writeFileSync(join(c.siteDir, "plugins/x.json"), "{ nope");
+    const s = spies();
+    await expect(pagesStage.run(c)).rejects.toThrow(/plugins\/x.json is not valid JSON/);
+    expect(s.gen).not.toHaveBeenCalled();
+  });
 });
