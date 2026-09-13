@@ -6,4 +6,4 @@ docker/.env
 plugin/skills/
 .DS_Store
 tools/phpstan/vendor/
-tools/phpstan/composer.lock
+.playwright-mcp/
