@@ -186,7 +186,7 @@ describe("resyncSite", () => {
 });
 
 describe("registry", () => {
-  it("registers spec, design, provision and pages", () => {
-    expect(Object.keys(registry)).toEqual(["spec", "design", "provision", "pages"]);
+  it("registers spec, design, provision, pages and plugins", () => {
+    expect(Object.keys(registry)).toEqual(["spec", "design", "provision", "pages", "plugins"]);
   });
 });
