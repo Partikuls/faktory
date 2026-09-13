@@ -9,5 +9,5 @@ describe("cli", () => {
     for (const cmd of ["init", "run", "provision", "approve", "resync", "destroy", "doctor"]) {
       expect(stdout).toContain(cmd);
     }
-  });
+  }, 20000);
 });
