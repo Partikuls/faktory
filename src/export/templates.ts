@@ -107,7 +107,7 @@ ${W} db check                   # répéter jusqu'à succès : WordPress écrit 
 ${W} db import - < db.sql
 ${W} search-replace '${SITE_URL_PLACEHOLDER}' '${real}' --all-tables-with-prefix
 ${W} search-replace '${esc(SITE_URL_PLACEHOLDER)}' '${esc(real)}' --all-tables-with-prefix   # forme JSON (index Yoast)
-${W} yoast index --reindex
+${W} yoast index --reindex --skip-confirmation
 ${W} rewrite flush
 ${W} user update admin --user_pass='un-nouveau-mot-de-passe'   # ou : wp user create … --role=administrator puis wp user delete admin --reassign=<id>
 \`\`\`
