@@ -101,3 +101,13 @@ npm run faktory -- run boulangerie --only plugins --max-cost 30
 ```
 
 Attendu : `✔ plugins — 1 plugin (faktory-produits: produit, 5 entrées, 2 pages mises à jour) ; 1 généré, 0 réutilisé — $<coût>`. Contrôle dans Chrome : `/wp-admin/edit.php?post_type=produit` liste les produits avec miniatures et colonnes ; `/` montre 4 produits mis en avant ; `/nos-produits/` montre la grille complète avec filtres par catégorie fonctionnels ; aucune carte d'exemple ne subsiste sur ces deux pages ; largeur 390 px → une colonne. Coût attendu : 3 à 8 $ par feature, à mesurer et consigner dans le README.
+
+## Écarts constatés à l'exécution (2026-09-13)
+
+- `blocks/<kebab>/index.asset.php` s'ajoute aux fichiers obligatoires du contrat : sans lui, WordPress refuse d'enregistrer le script d'éditeur du bloc.
+- Le prompt système lit `design-system.md`, pas `site-spec.json` : la feature complète et les pages qui l'affichent sont déjà inlinées dans le prompt utilisateur.
+- `verifyPlugin` compte les entrées avec `wp post list --post_status=publish --fields=ID` (longueur du tableau JSON) plutôt qu'avec `--format=count`.
+- `php_check` lance PHPStan avec `--memory-limit=1G` sur la liste de fichiers vérifiés (pas sur le dossier) et screene en plus une denylist de constructions PHP (`eval(`, `shell_exec(`, `unserialize(`, `$wpdb->query(`, `file_get_contents()` distant, etc.) avant toute activation.
+- Les `placements` sont revalidés (denylist markup + forme du commentaire de bloc) par `readPluginManifests` à chaque exécution, et pas seulement à la génération du plugin.
+- L'étape `pages` vérifie `data-faktory-plugin` sur chaque page où elle a appliqué un manifeste : sur un site neuf (`provision → plugins → pages`), l'étape `plugins` n'a aucun arbre à modifier et ne peut donc rien contrôler.
+- `tools/phpstan/composer.lock` est versionné : le niveau 5 doit se comporter à l'identique sur toutes les machines.
