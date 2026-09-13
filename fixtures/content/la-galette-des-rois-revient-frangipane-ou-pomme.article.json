@@ -1,0 +1,30 @@
+{
+  "title": "La galette des rois revient : frangipane ou pomme ?",
+  "excerpt": "Chaque janvier, deux galettes sortent du fournil de Maison Rivet : la frangipane classique et une version aux pommes. Comment elles sont faites, comment choisir, comment réserver.",
+  "category": "Saison",
+  "seo": {
+    "title": "Galette des rois à Nantes : frangipane ou pomme ? | Maison Rivet",
+    "metaDescription": "Galette des rois artisanale à Chantenay, Nantes : frangipane pur beurre ou pommes du verger. Nos deux recettes, nos conseils pour choisir et réserver."
+  },
+  "blocks": [
+    { "type": "paragraph", "text": "Chaque année, la galette des rois revient au fournil avec les premiers jours de janvier. Chez Maison Rivet, à Chantenay, nous en préparons deux : la <strong>frangipane</strong> classique, celle que l'on attend, et une galette aux <strong>pommes</strong> plus légère, pensée pour ceux qui préfèrent le fruit à la crème d'amande. Cet article raconte comment elles sont faites, ce qui les distingue, et comment les réserver sans stress pour l'Épiphanie." },
+    { "type": "heading", "level": 2, "text": "Deux recettes, un seul feuilletage" },
+    { "type": "paragraph", "text": "Tout commence par la pâte feuilletée. Nous la préparons au beurre, en plusieurs tours, sur deux jours, pour obtenir des couches fines et régulières qui gonflent bien à la cuisson. C'est le même feuilletage pour les deux galettes : il doit rester croustillant à l'extérieur et fondant à l'intérieur, sans jamais devenir gras. Une galette réussie se reconnaît à sa croûte dorée, à ses stries nettes et à son parfum de beurre cuit quand on la coupe." },
+    { "type": "paragraph", "text": "La frangipane est un mélange de crème d'amande et de crème pâtissière. Nous utilisons des amandes en poudre de bonne qualité, du beurre, du sucre et des œufs, avec une pointe de rhum pour relever l'ensemble. La galette aux pommes reprend le même feuilletage mais remplace la crème par des pommes coupées en petits morceaux, cuites doucement avec un peu de sucre et de cannelle jusqu'à obtenir une compotée encore texturée." },
+    { "type": "heading", "level": 2, "text": "Frangipane ou pomme : comment choisir ?" },
+    { "type": "paragraph", "text": "La question revient chaque année au comptoir, et la réponse dépend surtout du moment où la galette sera servie. Quelques repères simples :" },
+    { "type": "list", "ordered": false, "items": [
+      "<strong>Pour un goûter en famille</strong> : la frangipane fait l'unanimité, les enfants comme les grands-parents la connaissent et l'attendent.",
+      "<strong>Pour un repas déjà copieux</strong> : la galette aux pommes passe mieux en fin de repas, elle est moins riche et plus acidulée.",
+      "<strong>Pour un bureau ou une grande tablée</strong> : prenez une de chaque, les deux formats se coupent facilement en huit ou dix parts.",
+      "<strong>Pour les amateurs de tradition</strong> : la frangipane reste la galette de référence, celle que l'on trouve dans les boulangeries depuis des générations."
+    ] },
+    { "type": "paragraph", "text": "Dans les deux cas, la galette se déguste tiède. Quelques minutes au four, à basse température, suffisent pour réveiller le feuilletage si vous la servez le lendemain. Évitez le micro-ondes, qui ramollit la pâte." },
+    { "type": "heading", "level": 2, "text": "La fève, la couronne et le rituel" },
+    { "type": "paragraph", "text": "Chaque galette est livrée avec sa fève et sa couronne dorée. Le rituel reste le même : le plus jeune de la table se glisse dessous et attribue les parts à l'aveugle. Celui ou celle qui trouve la fève devient roi ou reine de la journée et, selon la tradition, offre la galette suivante. C'est souvent ce qui explique que la saison dure tout le mois de janvier plutôt qu'une seule journée." },
+    { "type": "quote", "text": "Une bonne galette, c'est d'abord un bon feuilletage. Le reste, c'est une question de goût.", "cite": "L'équipe du fournil" },
+    { "type": "heading", "level": 2, "text": "Comment réserver votre galette" },
+    { "type": "paragraph", "text": "Les galettes sont disponibles en boutique tout le mois de janvier, en plusieurs tailles selon le nombre de convives. Pour être certain d'avoir la vôtre un week-end ou pour une grande tablée, nous vous conseillons de la réserver quelques jours à l'avance, en boutique ou par téléphone. Retrouvez l'ensemble de nos pains, viennoiseries et pâtisseries sur la page <a href=\"/nos-produits/\">nos produits</a>, et pour une commande d'entreprise ou un événement, consultez la page <a href=\"/commandes-evenements/\">commandes et événements</a>." },
+    { "type": "paragraph", "text": "Frangipane ou pomme, il n'y a pas de mauvais choix : les deux sortent du même four, avec le même soin, et disparaissent en général avant la fin de l'après-midi. Nous vous attendons au fournil de Chantenay pour partager la galette des rois à Nantes, comme chaque année." }
+  ]
+}
