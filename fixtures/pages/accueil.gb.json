@@ -23,31 +23,33 @@
       { "type": "element", "tagName": "div", "styles": { "maxWidth": "var(--gb-container-width)", "marginLeft": "auto", "marginRight": "auto" },
         "innerBlocks": [
           { "type": "text", "tagName": "h2", "content": "Nos incontournables", "htmlAttributes": { "id": "incontournables-title" }, "styles": { "fontSize": "36px", "marginBottom": "32px", "color": "var(--contrast)" } },
-          { "type": "element", "tagName": "div", "styles": { "display": "grid", "gridTemplateColumns": "repeat(3, 1fr)", "gap": "24px", "@media (max-width:767px)": { "gridTemplateColumns": "1fr" } },
-            "innerBlocks": [
-              { "type": "element", "tagName": "article", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "overflow": "hidden" }, "innerBlocks": [
-                { "type": "media", "htmlAttributes": { "src": "https://placehold.co/600x400", "alt": "Tourte de meule au levain" }, "styles": { "width": "100%", "height": "auto" } },
-                { "type": "element", "tagName": "div", "styles": { "padding": "24px" }, "innerBlocks": [
-                  { "type": "text", "tagName": "h3", "content": "Tourte de meule", "styles": { "fontSize": "26px", "marginBottom": "8px" } },
-                  { "type": "text", "tagName": "p", "content": "Levain naturel, farine T80, 24 h de fermentation.", "styles": { "color": "var(--contrast-2)" } }
+          { "type": "element", "tagName": "div", "htmlAttributes": { "data-faktory-feature": "catalogue_produits" }, "innerBlocks": [
+            { "type": "element", "tagName": "div", "styles": { "display": "grid", "gridTemplateColumns": "repeat(3, 1fr)", "gap": "24px", "@media (max-width:767px)": { "gridTemplateColumns": "1fr" } },
+              "innerBlocks": [
+                { "type": "element", "tagName": "article", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "overflow": "hidden" }, "innerBlocks": [
+                  { "type": "media", "htmlAttributes": { "src": "https://placehold.co/600x400", "alt": "Tourte de meule au levain" }, "styles": { "width": "100%", "height": "auto" } },
+                  { "type": "element", "tagName": "div", "styles": { "padding": "24px" }, "innerBlocks": [
+                    { "type": "text", "tagName": "h3", "content": "Tourte de meule", "styles": { "fontSize": "26px", "marginBottom": "8px" } },
+                    { "type": "text", "tagName": "p", "content": "Levain naturel, farine T80, 24 h de fermentation.", "styles": { "color": "var(--contrast-2)" } }
+                  ] }
+                ] },
+                { "type": "element", "tagName": "article", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "overflow": "hidden" }, "innerBlocks": [
+                  { "type": "media", "htmlAttributes": { "src": "https://placehold.co/600x400", "alt": "Baguette tradition" }, "styles": { "width": "100%", "height": "auto" } },
+                  { "type": "element", "tagName": "div", "styles": { "padding": "24px" }, "innerBlocks": [
+                    { "type": "text", "tagName": "h3", "content": "Baguette tradition", "styles": { "fontSize": "26px", "marginBottom": "8px" } },
+                    { "type": "text", "tagName": "p", "content": "Croûte fine, mie crème, cuite toute la journée.", "styles": { "color": "var(--contrast-2)" } }
+                  ] }
+                ] },
+                { "type": "element", "tagName": "article", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "overflow": "hidden" }, "innerBlocks": [
+                  { "type": "media", "htmlAttributes": { "src": "https://placehold.co/600x400", "alt": "Tarte aux fruits de saison" }, "styles": { "width": "100%", "height": "auto" } },
+                  { "type": "element", "tagName": "div", "styles": { "padding": "24px" }, "innerBlocks": [
+                    { "type": "text", "tagName": "h3", "content": "Tarte de saison", "styles": { "fontSize": "26px", "marginBottom": "8px" } },
+                    { "type": "text", "tagName": "p", "content": "Fruits du marché, pâte sablée maison.", "styles": { "color": "var(--contrast-2)" } }
+                  ] }
                 ] }
               ] },
-              { "type": "element", "tagName": "article", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "overflow": "hidden" }, "innerBlocks": [
-                { "type": "media", "htmlAttributes": { "src": "https://placehold.co/600x400", "alt": "Baguette tradition" }, "styles": { "width": "100%", "height": "auto" } },
-                { "type": "element", "tagName": "div", "styles": { "padding": "24px" }, "innerBlocks": [
-                  { "type": "text", "tagName": "h3", "content": "Baguette tradition", "styles": { "fontSize": "26px", "marginBottom": "8px" } },
-                  { "type": "text", "tagName": "p", "content": "Croûte fine, mie crème, cuite toute la journée.", "styles": { "color": "var(--contrast-2)" } }
-                ] }
-              ] },
-              { "type": "element", "tagName": "article", "styles": { "backgroundColor": "var(--base-3)", "borderRadius": "10px", "overflow": "hidden" }, "innerBlocks": [
-                { "type": "media", "htmlAttributes": { "src": "https://placehold.co/600x400", "alt": "Tarte aux fruits de saison" }, "styles": { "width": "100%", "height": "auto" } },
-                { "type": "element", "tagName": "div", "styles": { "padding": "24px" }, "innerBlocks": [
-                  { "type": "text", "tagName": "h3", "content": "Tarte de saison", "styles": { "fontSize": "26px", "marginBottom": "8px" } },
-                  { "type": "text", "tagName": "p", "content": "Fruits du marché, pâte sablée maison.", "styles": { "color": "var(--contrast-2)" } }
-                ] }
-              ] }
-            ] },
-          { "type": "raw", "rawMarkup": "<!-- faktory:feature:catalogue_produits -->" }
+            { "type": "raw", "rawMarkup": "<!-- faktory:feature:catalogue_produits -->" }
+          ] }
         ] }
     ]
   },

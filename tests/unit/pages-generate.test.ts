@@ -7,7 +7,7 @@ import { initSite } from "../../src/workspace.js";
 import { loadContext } from "../../src/pipeline.js";
 import { pageTreePath } from "../../src/artifacts.js";
 import { parseSiteSpec } from "../../src/schemas/site-spec.js";
-import { featureMarker, formMarker } from "../../src/schemas/page-tree.js";
+import { featureMarker, formMarker, FORM_WRAPPER_ATTR } from "../../src/schemas/page-tree.js";
 import { pagesUserPrompt, readPageTree, generatePageTree, deps, PAGES_TOOLS, PAGES_MAX_TURNS } from "../../src/pages/generate.js";
 import { TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../../src/tools/server.js";
 
@@ -83,7 +83,10 @@ describe("generatePageTree", () => {
       .mockImplementationOnce(async (cc) => { fixtureTo(cc, "contact"); return { text: "", transcript: "", costUsd: 1, sessionId: "p-2", numTurns: 10 }; })
       .mockImplementationOnce(async (cc) => {
         const t = JSON.parse(readFileSync(pageTreePath(cc, "contact"), "utf8"));
-        t[1].innerBlocks[0].innerBlocks.push({ type: "raw", rawMarkup: formMarker("contact") });
+        t[1].innerBlocks[0].innerBlocks.push({
+          type: "element", tagName: "div", htmlAttributes: { [FORM_WRAPPER_ATTR]: "contact" },
+          innerBlocks: [{ type: "raw", rawMarkup: formMarker("contact") }],
+        });
         writeFileSync(pageTreePath(cc, "contact"), JSON.stringify(t));
         return { text: "", transcript: "", costUsd: 0.3, sessionId: "p-2", numTurns: 4 };
       });
