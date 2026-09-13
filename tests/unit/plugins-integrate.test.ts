@@ -9,6 +9,7 @@ import { pageTreePath } from "../../src/artifacts.js";
 import { parseSiteSpec } from "../../src/schemas/site-spec.js";
 import { parsePluginManifest, manifestPath } from "../../src/schemas/plugin-manifest.js";
 import { integratePlugin, pageUrl, deps } from "../../src/plugins/integrate.js";
+import { deps as renderDeps } from "../../src/pages/render-check.js";
 import type { SiteContext } from "../../src/docker.js";
 import type { PageTree } from "../../src/schemas/page-tree.js";
 
@@ -27,7 +28,7 @@ async function ctx(): Promise<SiteContext> {
 function spies(html = (slug: string) => `<html><div data-faktory-plugin="catalogue_produits" data-page="${slug}"></div></html>`) {
   const compile = vi.spyOn(deps, "compilePage").mockImplementation(async (_c, slug) => `<!-- ${slug} -->`);
   const publish = vi.spyOn(deps, "publishPage").mockResolvedValue(undefined);
-  const fetchText = vi.spyOn(deps, "fetchText").mockImplementation(async (url) => html(url));
+  const fetchText = vi.spyOn(renderDeps, "fetchText").mockImplementation(async (url) => html(url));
   return { compile, publish, fetchText };
 }
 

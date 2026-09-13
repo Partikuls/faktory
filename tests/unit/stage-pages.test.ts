@@ -9,6 +9,7 @@ import { artifactPath, pageTreePath, writeJsonArtifact } from "../../src/artifac
 import { parseSiteSpec, type Page } from "../../src/schemas/site-spec.js";
 import { featureMarker, formMarker, type PageTree } from "../../src/schemas/page-tree.js";
 import { pagesStage, deps, PAGES_CONCURRENCY } from "../../src/stages/pages.js";
+import { deps as renderDeps } from "../../src/pages/render-check.js";
 
 const spec = parseSiteSpec(JSON.parse(readFileSync("fixtures/specs/boulangerie.site-spec.json", "utf8")));
 const tokens = JSON.parse(readFileSync("fixtures/specs/boulangerie.design-tokens.json", "utf8"));
@@ -28,6 +29,14 @@ function stubTree(page: Page): PageTree {
 }
 const tick = () => new Promise<void>((r) => setTimeout(r, 5));
 
+/** The reference manifest plus the home tree that carries its feature wrapper. */
+function withManifest(c: { siteDir: string }): void {
+  mkdirSync(join(c.siteDir, "pages"), { recursive: true });
+  copyFileSync("fixtures/pages/accueil.gb.json", join(c.siteDir, "pages/accueil.gb.json"));
+  mkdirSync(join(c.siteDir, "plugins"), { recursive: true });
+  copyFileSync("fixtures/plugins/catalogue_produits.manifest.json", join(c.siteDir, "plugins/catalogue_produits.json"));
+}
+
 async function ctx(opts: { design?: boolean } = { design: true }) {
   const config = loadConfig(mkdtempSync(join(tmpdir(), "fk-stpages-")));
   await initSite(config, { slug: "boul", briefPath: "fixtures/briefs/boulangerie.md" });
@@ -38,7 +47,7 @@ async function ctx(opts: { design?: boolean } = { design: true }) {
   return c;
 }
 
-function spies(opts: { fail?: string[]; delay?: boolean } = {}) {
+function spies(opts: { fail?: string[]; delay?: boolean; html?: string } = {}) {
   const order: string[] = []; let inFlight = 0, peak = 0;
   const ensure = vi.spyOn(deps, "ensurePages").mockResolvedValue(IDS);
   const gen = vi.spyOn(deps, "generatePageTree").mockImplementation(async (_c, _s, page) => {
@@ -50,7 +59,11 @@ function spies(opts: { fail?: string[]; delay?: boolean } = {}) {
   });
   const compile = vi.spyOn(deps, "compilePage").mockImplementation(async (_c, slug) => { order.push(`compile:${slug}`); return `<!-- ${slug} -->`; });
   const publish = vi.spyOn(deps, "publishPage").mockImplementation(async (_c, id) => { order.push(`publish:${id}`); });
-  return { ensure, gen, compile, publish, order, peak: () => peak };
+  const fetchText = vi.spyOn(renderDeps, "fetchText").mockImplementation(async (url) => {
+    order.push(`fetch:${url}`);
+    return opts.html ?? '<html><div data-faktory-plugin="catalogue_produits"></div></html>';
+  });
+  return { ensure, gen, compile, publish, fetchText, order, peak: () => peak };
 }
 
 describe("pages stage", () => {
@@ -129,10 +142,7 @@ describe("pages stage", () => {
   });
   it("applies plugin manifests at compile time and keeps the tree on disk untouched", async () => {
     const c = await ctx();
-    mkdirSync(join(c.siteDir, "pages"), { recursive: true });
-    copyFileSync("fixtures/pages/accueil.gb.json", pageTreePath(c, "accueil"));
-    mkdirSync(join(c.siteDir, "plugins"), { recursive: true });
-    copyFileSync("fixtures/plugins/catalogue_produits.manifest.json", join(c.siteDir, "plugins/catalogue_produits.json"));
+    withManifest(c);
     const s = spies();
     const msg = await pagesStage.run(c);
     const compiled = s.compile.mock.calls.find((k: any) => k[1] === "accueil")![2] as PageTree;
@@ -140,6 +150,28 @@ describe("pages stage", () => {
     expect(JSON.stringify(compiled)).not.toContain("data-faktory-feature");
     expect(readFileSync(pageTreePath(c, "accueil"), "utf8")).toContain("data-faktory-feature");
     expect(msg).toMatch(/; plugins applied \(catalogue_produits\) — \$/);
+  });
+  it("fetches every page it applied a manifest to and checks the render attribute", async () => {
+    const c = await ctx();
+    withManifest(c);
+    const s = spies();
+    await pagesStage.run(c);
+    // accueil is the only page whose tree carries the feature wrapper: only it is fetched
+    expect(s.fetchText).toHaveBeenCalledTimes(1);
+    expect(s.fetchText).toHaveBeenCalledWith(`http://localhost:${c.state.port}/`);
+    expect(s.order.indexOf("publish:10")).toBeLessThan(s.order.indexOf(`fetch:http://localhost:${c.state.port}/`));
+  });
+  it("fails when the published page does not render data-faktory-plugin", async () => {
+    const c = await ctx();
+    withManifest(c);
+    spies({ html: "<html>no plugin here</html>" });
+    await expect(pagesStage.run(c)).rejects.toThrow(/\/ \(accueil\) does not render data-faktory-plugin="catalogue_produits" — check the render function and that the block is registered/);
+  });
+  it("fetches nothing when no manifest applies", async () => {
+    const c = await ctx();
+    const s = spies();
+    await pagesStage.run(c);
+    expect(s.fetchText).not.toHaveBeenCalled();
   });
   it("fails fast on an invalid manifest before generating anything", async () => {
     const c = await ctx();

@@ -7,6 +7,7 @@ import { ensurePages } from "../provision/pages.js";
 import { generatePageTree, readPageTree } from "../pages/generate.js";
 import { compilePage, publishPage } from "../pages/publish.js";
 import { applyPlugins, readPluginManifests } from "../pages/apply-plugins.js";
+import { assertRendered } from "../pages/render-check.js";
 import { parseSiteSpec, type Page } from "../schemas/site-spec.js";
 import { parseDesignTokens } from "../schemas/design-tokens.js";
 import type { PageTree } from "../schemas/page-tree.js";
@@ -51,6 +52,9 @@ export const pagesStage: Stage = {
       a.applied.forEach((id) => applied.add(id));
       const markup = await deps.compilePage(ctx, page.slug, a.tree);
       await deps.publishPage(ctx, ids[page.slug], markup);
+      // Fresh-site order (provision → plugins → pages): the plugins stage had no tree to insert the block
+      // into, so this is the only place the render contract of every applied plugin is checked.
+      for (const id of a.applied) await assertRendered(ctx, page, id);
       console.log(`  ✔ ${page.kind === "home" ? "/" : `/${page.slug}/`} published`);
     };
 
