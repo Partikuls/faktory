@@ -38,7 +38,7 @@ describe("design stage", () => {
   });
   it("runs the agent with Read/Write/gb tools, compiles+renders the preview itself, validates tokens and writes design-tokens.json", async () => {
     const c = await ctx();
-    const run = vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc); return { text: "", structured: tokens, costUsd: 1.5, numTurns: 20 }; });
+    const run = vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc); return { text: "", transcript: "", structured: tokens, costUsd: 1.5, numTurns: 20 }; });
     const markup = "<!-- wp:generateblocks/element {} -->\n<section></section>\n<!-- /wp:generateblocks/element -->\n";
     const build = vi.spyOn(deps, "gbBuild").mockResolvedValue(markup);
     const preview = vi.spyOn(deps, "gbPreview").mockResolvedValue(undefined);
@@ -58,26 +58,26 @@ describe("design stage", () => {
   });
   it("fails when the agent did not write design-system.md", async () => {
     const c = await ctx();
-    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc, { md: false, tree: true }); return { text: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
+    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc, { md: false, tree: true }); return { text: "", transcript: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
     await expect(designStage.run(c)).rejects.toThrow(/design-system.md/);
     expect(hasArtifact(c, "designTokensJson")).toBe(false);
   });
   it("fails when the agent did not write design/preview.gb.json", async () => {
     const c = await ctx();
-    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc, { md: true, tree: false }); return { text: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
+    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc, { md: true, tree: false }); return { text: "", transcript: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
     await expect(designStage.run(c)).rejects.toThrow(/preview.gb.json/);
     expect(hasArtifact(c, "designTokensJson")).toBe(false);
   });
   it("fails when gb_build rejects", async () => {
     const c = await ctx();
-    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc); return { text: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
+    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc); return { text: "", transcript: "", structured: tokens, costUsd: 1, numTurns: 5 }; });
     vi.spyOn(deps, "gbBuild").mockRejectedValue(new Error("gb_build.py failed (exit 1): KeyError"));
     await expect(designStage.run(c)).rejects.toThrow(/gb_build.py failed/);
     expect(hasArtifact(c, "designTokensJson")).toBe(false);
   });
   it("fails on invalid tokens before writing anything", async () => {
     const c = await ctx();
-    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc); return { text: "", structured: { ...tokens, palette: {} }, costUsd: 1, numTurns: 5 }; });
+    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { agentWrites(cc); return { text: "", transcript: "", structured: { ...tokens, palette: {} }, costUsd: 1, numTurns: 5 }; });
     vi.spyOn(deps, "gbBuild").mockResolvedValue("<!-- wp:generateblocks/element {} -->\n<section></section>\n<!-- /wp:generateblocks/element -->\n");
     vi.spyOn(deps, "gbPreview").mockResolvedValue(undefined);
     await expect(designStage.run(c)).rejects.toThrow(/Invalid design tokens/);
@@ -86,8 +86,8 @@ describe("design stage", () => {
   it("retries once when the agent forgot a file, and succeeds if the retry writes it", async () => {
     const c = await ctx();
     const run = vi.spyOn(deps, "runAgent")
-      .mockImplementationOnce(async (cc) => { agentWrites(cc, { md: true, tree: false }); return { text: "", structured: tokens, costUsd: 1, sessionId: "d-1", numTurns: 5 }; })
-      .mockImplementationOnce(async (cc) => { agentWrites(cc); return { text: "", structured: tokens, costUsd: 0.3, sessionId: "d-1", numTurns: 3 }; });
+      .mockImplementationOnce(async (cc) => { agentWrites(cc, { md: true, tree: false }); return { text: "", transcript: "", structured: tokens, costUsd: 1, sessionId: "d-1", numTurns: 5 }; })
+      .mockImplementationOnce(async (cc) => { agentWrites(cc); return { text: "", transcript: "", structured: tokens, costUsd: 0.3, sessionId: "d-1", numTurns: 3 }; });
     vi.spyOn(deps, "gbBuild").mockResolvedValue("<!-- wp:generateblocks/element {} -->\n<section></section>\n<!-- /wp:generateblocks/element -->\n");
     vi.spyOn(deps, "gbPreview").mockResolvedValue(undefined);
     const msg = await designStage.run(c);

@@ -156,7 +156,7 @@ describe("resyncSite", () => {
     writeTextArtifact(ctx, "designSystemMd", "# design"); writeJsonArtifact(ctx, "designTokensJson", tokens);
     const future = new Date(Date.now() + 5000);
     utimesSync(artifactPath(ctx, "siteSpecMd"), future, future); // only SITE-SPEC.md is stale
-    const run = vi.spyOn(resyncDeps, "runAgent").mockResolvedValue({ text: "", structured: spec, costUsd: 0.1, numTurns: 2 });
+    const run = vi.spyOn(resyncDeps, "runAgent").mockResolvedValue({ text: "", transcript: "", structured: spec, costUsd: 0.1, numTurns: 2 });
     const resynced = await resyncSite(config, "pp");
     expect(resynced).toEqual(["spec"]);
     expect(run).toHaveBeenCalledTimes(1);

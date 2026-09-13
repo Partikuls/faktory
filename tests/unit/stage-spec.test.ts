@@ -21,7 +21,7 @@ describe("spec stage", () => {
   beforeEach(() => vi.restoreAllMocks());
   it("is a checkpoint that asks for a structured site spec with Read only", async () => {
     const c = await ctx();
-    const spy = vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", structured: fixture, costUsd: 0.42, numTurns: 3 });
+    const spy = vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", transcript: "", structured: fixture, costUsd: 0.42, numTurns: 3 });
     expect(specStage.checkpoint).toBe(true);
     const msg = await specStage.run(c);
     const call = spy.mock.calls[0][1];
@@ -36,15 +36,15 @@ describe("spec stage", () => {
   });
   it("fails loudly when the structured output is invalid", async () => {
     const c = await ctx();
-    vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", structured: { identity: {} }, costUsd: 0.1, numTurns: 1 });
+    vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", transcript: "", structured: { identity: {} }, costUsd: 0.1, numTurns: 1 });
     await expect(specStage.run(c)).rejects.toThrow(/Invalid site spec/);
     expect(hasArtifact(c, "siteSpecJson")).toBe(false);
   });
   it("onApprove re-syncs site-spec.json only when SITE-SPEC.md was edited", async () => {
     const c = await ctx();
-    vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", structured: fixture, costUsd: 0.4, numTurns: 3 });
+    vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", transcript: "", structured: fixture, costUsd: 0.4, numTurns: 3 });
     await specStage.run(c);
-    const spy = vi.spyOn(resyncDeps, "runAgent").mockResolvedValue({ text: "", structured: { ...fixture, identity: { ...fixture.identity, name: "Maison Rivet & Fils" } }, costUsd: 0.2, numTurns: 2 });
+    const spy = vi.spyOn(resyncDeps, "runAgent").mockResolvedValue({ text: "", transcript: "", structured: { ...fixture, identity: { ...fixture.identity, name: "Maison Rivet & Fils" } }, costUsd: 0.2, numTurns: 2 });
     expect(await specStage.onApprove!(c)).toBeUndefined();
     expect(spy).not.toHaveBeenCalled();
     const future = new Date(Date.now() + 5000); utimesSync(artifactPath(c, "siteSpecMd"), future, future);
@@ -55,8 +55,8 @@ describe("spec stage", () => {
     const c = await ctx();
     const bad = structuredClone(fixture); bad.sitemap[1].kind = "home";
     const run = vi.spyOn(deps, "runAgent")
-      .mockResolvedValueOnce({ text: "", structured: bad, costUsd: 0.4, sessionId: "sess-1", numTurns: 5 })
-      .mockResolvedValueOnce({ text: "", structured: fixture, costUsd: 0.1, sessionId: "sess-1", numTurns: 2 });
+      .mockResolvedValueOnce({ text: "", transcript: "", structured: bad, costUsd: 0.4, sessionId: "sess-1", numTurns: 5 })
+      .mockResolvedValueOnce({ text: "", transcript: "", structured: fixture, costUsd: 0.1, sessionId: "sess-1", numTurns: 2 });
     const msg = await specStage.run(c);
     expect(run).toHaveBeenCalledTimes(2);
     expect(run.mock.calls[1][1].resume).toBe("sess-1");

@@ -30,7 +30,7 @@ describe("resyncFromMarkdown", () => {
     writeTextArtifact(c, "designSystemMd", "# ds"); writeJsonArtifact(c, "designTokensJson", tokens);
     const future = new Date(Date.now() + 5000); utimesSync(artifactPath(c, "designSystemMd"), future, future);
     const edited = { ...tokens, radius: 4 };
-    const spy = vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", structured: edited, costUsd: 0.1, numTurns: 2 });
+    const spy = vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", transcript: "", structured: edited, costUsd: 0.1, numTurns: 2 });
     const r = await resyncFromMarkdown(c, opts);
     expect(r?.radius).toBe(4);
     expect(readJsonArtifact(c, "designTokensJson", parseDesignTokens).radius).toBe(4);
@@ -45,7 +45,7 @@ describe("resyncFromMarkdown", () => {
     const c = ctx();
     writeTextArtifact(c, "designSystemMd", "# ds"); writeJsonArtifact(c, "designTokensJson", tokens);
     const future = new Date(Date.now() + 5000); utimesSync(artifactPath(c, "designSystemMd"), future, future);
-    vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", structured: { ...tokens, radius: 99 }, costUsd: 0.1, numTurns: 2 });
+    vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", transcript: "", structured: { ...tokens, radius: 99 }, costUsd: 0.1, numTurns: 2 });
     await expect(resyncFromMarkdown(c, opts)).rejects.toThrow(/Invalid design tokens/);
   });
 });

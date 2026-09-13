@@ -6,7 +6,7 @@ import type { SiteContext } from "../../src/docker.js";
 
 const ctx: SiteContext = { config: loadConfig("/tmp/fk"), slug: "d", siteDir: "/tmp/fk/sites/d", state: createState("d", 8100, "pw") };
 const opts: AgentOptions = { stage: "spec", prompt: "go", allowedTools: ["Read"], maxTurns: 5 };
-const run = (structured: unknown, sessionId: string, costUsd = 0.5): AgentRun => ({ text: "", structured, costUsd, sessionId, numTurns: 3 });
+const run = (structured: unknown, sessionId: string, costUsd = 0.5): AgentRun => ({ text: "", transcript: "", structured, costUsd, sessionId, numTurns: 3 });
 
 describe("runValidated", () => {
   it("returns the first run when it validates", async () => {

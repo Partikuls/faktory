@@ -55,7 +55,7 @@ export function remainingBudget(ctx: SiteContext): number {
   return Math.max(0.05, Math.round((ctx.config.maxCostUsd - ctx.state.costUsd) * 100) / 100);
 }
 
-export type AgentRun = { text: string; structured?: unknown; costUsd: number; sessionId?: string; numTurns: number };
+export type AgentRun = { text: string; transcript: string; structured?: unknown; costUsd: number; sessionId?: string; numTurns: number };
 
 export type AgentOptions = {
   stage: string; prompt: string; systemPrompt?: string; allowedTools: string[];
@@ -72,6 +72,7 @@ export async function runAgent(
 ): Promise<AgentRun> {
   const server = createFaktoryServer(ctx);
   let out: AgentRun | undefined;
+  const transcriptParts: string[] = [];
   for await (const message of query({
     prompt: opts.prompt,
     options: {
@@ -94,7 +95,10 @@ export async function runAgent(
   })) {
     if (message.type === "assistant") {
       for (const block of message.message.content) {
-        if (block.type === "text" && block.text.trim()) console.log(`  [${opts.stage}] ${block.text.trim().split("\n")[0].slice(0, 160)}`);
+        if (block.type === "text" && block.text.trim()) {
+          console.log(`  [${opts.stage}] ${block.text.trim().split("\n")[0].slice(0, 160)}`);
+          transcriptParts.push(block.text.trim());
+        }
       }
     }
     if (message.type === "result") {
@@ -103,6 +107,7 @@ export async function runAgent(
       if (message.subtype !== "success") throw new Error(`Agent stage "${opts.stage}" ended with ${message.subtype}`);
       out = {
         text: message.result,
+        transcript: transcriptParts.join("\n"),
         structured: (message as { structured_output?: unknown }).structured_output,
         costUsd: message.total_cost_usd,
         sessionId: message.session_id,

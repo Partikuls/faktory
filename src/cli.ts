@@ -100,11 +100,11 @@ program.command("doctor").description("Check local toolchain and skill loading")
         maxTurns: 4,
         model: "claude-sonnet-5",
       });
-      console.log("\n--- agent ---\n" + r.text + `\n--- cost $${r.costUsd.toFixed(4)}, ${r.numTurns} turns ---`);
-      const missing = pluginSkillNames().filter((n) => !r.text.includes(n));
-      const hasWpCli = /WP-CLI \d/.test(r.text);
-      const leakedUser = r.text.includes("wordpress-content-writer");
-      const leakedBundled = r.text.includes("keybindings-help");
+      console.log("\n--- agent ---\n" + r.transcript + `\n--- cost $${r.costUsd.toFixed(4)}, ${r.numTurns} turns ---`);
+      const missing = pluginSkillNames().filter((n) => !r.transcript.includes(n));
+      const hasWpCli = /WP-CLI \d/.test(r.transcript);
+      const leakedUser = r.transcript.includes("wordpress-content-writer");
+      const leakedBundled = r.transcript.includes("keybindings-help");
       let ok = true;
       if (missing.length) { console.log(`✖ missing plugin skill(s): ${missing.join(", ")}`); ok = false; }
       if (!hasWpCli) { console.log("✖ no WP-CLI version line in agent output"); ok = false; }

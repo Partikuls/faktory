@@ -64,7 +64,7 @@ describe("generatePageTree", () => {
   beforeEach(() => vi.restoreAllMocks());
   it("runs the pages agent with Read/Write/gb tools and returns the validated tree", async () => {
     const c = await ctx();
-    const run = vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { fixtureTo(cc, "accueil"); return { text: "ok", costUsd: 1.2, sessionId: "p-1", numTurns: 12 }; });
+    const run = vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => { fixtureTo(cc, "accueil"); return { text: "ok", transcript: "ok", costUsd: 1.2, sessionId: "p-1", numTurns: 12 }; });
     const r = await generatePageTree(c, spec, home);
     expect(r.tree).toHaveLength(5);
     expect(r).toMatchObject({ costUsd: 1.2, attempts: 1 });
@@ -80,12 +80,12 @@ describe("generatePageTree", () => {
   it("retries once with the validation issues when the tree is invalid, then succeeds", async () => {
     const c = await ctx();
     const run = vi.spyOn(deps, "runAgent")
-      .mockImplementationOnce(async (cc) => { fixtureTo(cc, "contact"); return { text: "", costUsd: 1, sessionId: "p-2", numTurns: 10 }; })
+      .mockImplementationOnce(async (cc) => { fixtureTo(cc, "contact"); return { text: "", transcript: "", costUsd: 1, sessionId: "p-2", numTurns: 10 }; })
       .mockImplementationOnce(async (cc) => {
         const t = JSON.parse(readFileSync(pageTreePath(cc, "contact"), "utf8"));
         t[1].innerBlocks[0].innerBlocks.push({ type: "raw", rawMarkup: formMarker("contact") });
         writeFileSync(pageTreePath(cc, "contact"), JSON.stringify(t));
-        return { text: "", costUsd: 0.3, sessionId: "p-2", numTurns: 4 };
+        return { text: "", transcript: "", costUsd: 0.3, sessionId: "p-2", numTurns: 4 };
       });
     const r = await generatePageTree(c, spec, contact, { homeSlug: "accueil" });
     expect(r).toMatchObject({ costUsd: 1.3, attempts: 2 });
@@ -94,7 +94,7 @@ describe("generatePageTree", () => {
   });
   it("fails after the retry when the agent never writes the file", async () => {
     const c = await ctx();
-    vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", costUsd: 0.5, sessionId: "p-3", numTurns: 2 });
+    vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", transcript: "", costUsd: 0.5, sessionId: "p-3", numTurns: 2 });
     await expect(generatePageTree(c, spec, home)).rejects.toThrow(/pages: output still invalid after one retry — pages\/accueil.gb.json was not written/);
   });
 });
