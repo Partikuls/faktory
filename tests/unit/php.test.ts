@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { loadConfig } from "../../src/config.js";
 import { phpCheck, listPhpFiles, phpstanBin, phpstanConfigPath, deps } from "../../src/php.js";
 
@@ -58,8 +58,21 @@ describe("phpCheck (mocked run)", () => {
     expect(r.output).toContain("Undefined variable $x");
     const call = run.mock.calls.find((c: any) => c[0] !== "php")!;
     expect(call[0]).toBe(join(root, "tools/phpstan/vendor/bin/phpstan"));
-    expect(call[1]).toEqual(["analyse", "--no-progress", "--error-format=raw", "--level=5", "--memory-limit=512M", "-c", join(root, "tools/phpstan/phpstan.neon"), dir]);
+    expect(call[1]).toEqual(["analyse", "--no-progress", "--error-format=raw", "--level=5", "--memory-limit=1G", "-c", join(root, "tools/phpstan/phpstan.neon"), dir]);
     expect(call[2]).toMatchObject({ cwd: join(root, "tools/phpstan") });
+  });
+  it("resolves a relative dir to its absolute form before running phpstan (its cwd is tools/phpstan, not ours)", async () => {
+    const dir = pluginDir({ "a.php": "<?php" });
+    const root = mkdtempSync(join(tmpdir(), "fk-root-"));
+    mkdirSync(join(root, "tools/phpstan/vendor/bin"), { recursive: true });
+    writeFileSync(join(root, "tools/phpstan/vendor/bin/phpstan"), "");
+    const relDir = relative(process.cwd(), dir);
+    const run = vi.spyOn(deps, "run").mockResolvedValue(okRun);
+    const r = await phpCheck({ ...config, repoRoot: root }, relDir);
+    expect(r).toMatchObject({ ok: true, files: 1 });
+    const call = run.mock.calls.find((c: any) => c[0] !== "php")!;
+    expect(call[1][call[1].length - 1]).toBe(resolve(relDir));
+    expect(call[1][call[1].length - 1]).toBe(dir);
   });
   it("reports OK with the file count when both pass", async () => {
     const dir = pluginDir({ "a.php": "<?php", "inc/b.php": "<?php" });

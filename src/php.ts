@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { FaktoryConfig } from "./config.js";
 import { run } from "./exec.js";
 
@@ -26,9 +26,10 @@ export type PhpCheckResult = { ok: boolean; output: string; files: number };
 
 /** `php -l` on every PHP file, then PHPStan level 5 with the repo's WordPress-aware config. Never throws. */
 export async function phpCheck(config: FaktoryConfig, dir: string): Promise<PhpCheckResult> {
-  if (!existsSync(dir)) return { ok: false, files: 0, output: `${dir} not found` };
-  const files = listPhpFiles(dir);
-  if (!files.length) return { ok: false, files: 0, output: `no PHP files under ${dir}` };
+  const abs = resolve(dir);
+  if (!existsSync(abs)) return { ok: false, files: 0, output: `${abs} not found` };
+  const files = listPhpFiles(abs);
+  if (!files.length) return { ok: false, files: 0, output: `no PHP files under ${abs}` };
   const lint: string[] = [];
   for (const f of files) {
     const r = await deps.run("php", ["-l", f]);
@@ -37,7 +38,7 @@ export async function phpCheck(config: FaktoryConfig, dir: string): Promise<PhpC
   if (lint.length) return { ok: false, files: files.length, output: `php -l:\n${lint.join("\n")}` };
   const bin = phpstanBin(config);
   if (!existsSync(bin)) return { ok: false, files: files.length, output: "PHPStan not installed — run npm run setup-phpstan" };
-  const r = await deps.run(bin, ["analyse", "--no-progress", "--error-format=raw", `--level=${PHPSTAN_LEVEL}`, "--memory-limit=512M", "-c", phpstanConfigPath(config), dir], { cwd: phpstanDir(config) });
+  const r = await deps.run(bin, ["analyse", "--no-progress", "--error-format=raw", `--level=${PHPSTAN_LEVEL}`, "--memory-limit=1G", "-c", phpstanConfigPath(config), abs], { cwd: phpstanDir(config) });
   if (r.code !== 0) return { ok: false, files: files.length, output: `PHPStan level ${PHPSTAN_LEVEL}:\n${(r.stdout + "\n" + r.stderr).trim()}` };
   return { ok: true, files: files.length, output: `OK: php -l and PHPStan level ${PHPSTAN_LEVEL} passed on ${files.length} PHP files` };
 }

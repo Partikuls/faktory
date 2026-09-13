@@ -30,7 +30,7 @@ describe("reference plugin fixture", () => {
 
 describe.skipIf(!existsSync("tools/phpstan/vendor/bin/phpstan"))("reference plugin fixture (php toolchain)", () => {
   it("passes php -l and PHPStan level 5", async () => {
-    const r = await phpCheck(loadConfig(process.cwd()), join(process.cwd(), DIR));
+    const r = await phpCheck(loadConfig(process.cwd()), DIR);
     expect(r.ok, r.output).toBe(true);
     expect(r.files).toBe(9);
   });
