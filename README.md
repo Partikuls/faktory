@@ -111,7 +111,7 @@ Every agent stage validates its output (zod + file checks) and, on failure, resu
 `export` is $0; measured bundle on boulangerie: db.sql 2.3 MB, wp-content.tar.gz 16 MB.
 
 ## Stages
-spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Phase 3 implements `pages`. Phase 4 implements `plugins`, phase 5 `content`, phase 6a `qa`. Phase 6a implements `qa`, phase 6b `export`: every stage of the pipeline is implemented.
+spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Phase 3 implements `pages`. Phase 4 implements `plugins`, phase 5 `content`. Phase 6a implements `qa`, phase 6b `export`: every stage of the pipeline is implemented.
 
 ## Tests
 ```bash

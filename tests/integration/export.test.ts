@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, cpSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, cpSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { loadConfig } from "../../src/config.js";
@@ -71,6 +71,7 @@ describe.skipIf(!process.env.FAKTORY_DOCKER)("export stage and restore on a thro
   afterAll(async () => {
     vi.restoreAllMocks();
     await compose(restoreDir, "down", "-v");
+    rmSync(restoreDir, { recursive: true, force: true });
     await destroySite(config, "itexport");
   });
 

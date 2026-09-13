@@ -67,7 +67,7 @@ describe("export stage", () => {
     expect(manifest.wordpress).toBe("7.1");
     expect(manifest.customPlugins).toHaveLength(1);
     expect(manifest.forms).toEqual([{ id: "contact", name: spec.forms.find((f) => f.id === "contact")!.name, gfId: 5 }]);
-    expect(manifest.qa).toEqual({ urls: 2, reviewed: 1, remainingIssues: 0, report: "qa/QA-REPORT.md" });
+    expect(manifest.qa).toEqual({ urls: 2, reviewed: 1, remainingIssues: 0, workspaceReport: "qa/QA-REPORT.md" });
     expect(Object.keys(manifest.files).sort()).toEqual(["README.md", ".env.example", "db.sql", "docker-compose.prod.yml", "wp-content.tar.gz"].sort());
     expect(manifest.files["db.sql"]).toBe(32); // actual on-disk size of the mocked sql string (statSync), not the mock's bytes field
     expect(msg).toBe("dist/: db.sql (1 kB), wp-content.tar.gz (1 kB), docker-compose.prod.yml, .env.example, README.md, MANIFEST.json");

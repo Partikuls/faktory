@@ -5,7 +5,7 @@ describe("export templates", () => {
   it("prod compose has db, wordpress, wpcli, env variables and no WP_DEBUG", () => {
     const y = prodCompose();
     for (const s of ["services:", "  db:", "image: mariadb:11", "  wordpress:", "image: wordpress:php8.3-apache", "  wpcli:", "image: wordpress:cli-php8.3",
-      "${SITE_PORT}:80", "MARIADB_PASSWORD: ${DB_PASSWORD}", "MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}", "WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}",
+      "127.0.0.1:${SITE_PORT}:80", "MARIADB_PASSWORD: ${DB_PASSWORD}", "MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}", "WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}",
       "./wp-content:/var/www/html/wp-content", "define('FS_METHOD', 'direct');", "restart: unless-stopped", "healthcheck:"]) expect(y).toContain(s);
     expect(y).not.toContain("WP_DEBUG");
   });
@@ -26,11 +26,13 @@ describe("export templates", () => {
     expect(md.startsWith("# Maison Rivet — livraison Faktory\n")).toBe(true);
     for (const s of [
       "cp .env.example .env", "tar -xzf wp-content.tar.gz", "docker compose -f docker-compose.prod.yml up -d --wait",
-      "wp db import - < db.sql", "wp search-replace 'https://SITE_URL_PLACEHOLDER' 'https://www.exemple.fr' --all-tables-with-prefix",
+      "sudo chown -R 33:33 wp-content", "wp db import - < db.sql", "wp search-replace 'https://SITE_URL_PLACEHOLDER' 'https://www.exemple.fr' --all-tables-with-prefix",
       "wp search-replace 'https:\\/\\/SITE_URL_PLACEHOLDER' 'https:\\/\\/www.exemple.fr' --all-tables-with-prefix",
-      "wp yoast index --reindex", "wp rewrite flush", "wp user update admin --user_pass=",
+      "wp yoast index --reindex --skip-confirmation", "wp rewrite flush", "wp user update admin --user_pass=",
       "SMTP", "Gravity Forms", "GP Premium", "GenerateBlocks Pro", "WP Umbrella", "MANIFEST.json",
       "`faktory-produits` (type de contenu `produit`)", "Contact (Gravity Forms #5)", "la-galette",
+      "le port n'est exposé que sur `127.0.0.1`",
+      "**Confidentialité** : `db.sql` contient le hash du mot de passe administrateur et les données du site ; transmettre ce dossier par un canal privé, le supprimer après restauration, ne jamais le joindre à un ticket.",
     ]) expect(md, s).toContain(s);
   });
 });

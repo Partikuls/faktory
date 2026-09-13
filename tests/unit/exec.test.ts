@@ -20,4 +20,11 @@ describe("run", () => {
     const r = await run("sh", ["-c", "exit 0"], { input: "y".repeat(2_000_000) });
     expect(r.code).toBe(0);
   });
+  it("captures multi-byte UTF-8 characters split across stdout chunks without corruption", async () => {
+    const expected = "é à € ".repeat(60_000); // ~1 MB, written in one process.stdout.write so Node splits it across chunks
+    const r = await run("node", ["-e", `process.stdout.write(${JSON.stringify(expected)})`]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toBe(expected);
+    expect(r.stdout).not.toContain("�");
+  });
 });

@@ -61,7 +61,7 @@ describe("manifest", () => {
       customPlugins: [{ feature: "catalogue_produits", plugin: "faktory-catalogue-produits", postType: manifest.postType, block: manifest.block }],
       forms: [{ id: "devis_evenement", name: spec.forms[0].name, gfId: 4 }, { id: "contact", name: spec.forms[1].name, gfId: 5 }],
       articles: spec.blog.articles.map((a) => articleSlug(a.title)),
-      qa: { urls: 2, reviewed: 1, remainingIssues: 0, report: "qa/QA-REPORT.md" },
+      qa: { urls: 2, reviewed: 1, remainingIssues: 0, workspaceReport: "qa/QA-REPORT.md" },
       costUsd: 22.09,
       files: { "db.sql": 2088575, "wp-content.tar.gz": 31400000 },
     });

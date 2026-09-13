@@ -37,6 +37,10 @@ describe("db export helpers", () => {
     expect(() => assertPlaceholderDump("DROP TABLE x;", LOCAL)).toThrow(/db.sql does not contain https:\/\/SITE_URL_PLACEHOLDER — is the site url http:\/\/localhost:8101\?/);
     expect(() => assertPlaceholderDump("", LOCAL)).toThrow(/db.sql is empty/);
   });
+  it("rejects a dump containing U+FFFD replacement characters", () => {
+    const corrupted = replaceEscapedUrls(DUMP, LOCAL).replace("SITE_URL_PLACEHOLDER", "SITE�_URL_PLACEHOLDER");
+    expect(() => assertPlaceholderDump(corrupted, LOCAL)).toThrow(/db.sql contains U\+FFFD replacement characters — the dump was not read as UTF-8/);
+  });
 });
 
 describe("exportDb", () => {

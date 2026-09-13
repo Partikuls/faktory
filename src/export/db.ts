@@ -19,6 +19,7 @@ export function replaceEscapedUrls(dump: string, localUrl: string): string {
 
 export function assertPlaceholderDump(dump: string, localUrl: string): void {
   if (!dump.trim()) throw new Error("db.sql is empty — wp search-replace --export produced nothing");
+  if (dump.includes("�")) throw new Error("db.sql contains U+FFFD replacement characters — the dump was not read as UTF-8");
   if (!dump.includes(SITE_URL_PLACEHOLDER)) throw new Error(`db.sql does not contain ${SITE_URL_PLACEHOLDER} — is the site url ${localUrl}?`);
   const host = localUrl.replace(/^https?:\/\//, "");
   const left = dump.split(host).length - 1;

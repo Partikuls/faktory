@@ -10,6 +10,10 @@ export function run(
   return new Promise((resolve) => {
     const child = spawn(cmd, args, { cwd: opts.cwd, env: { ...process.env, ...opts.env } });
     let stdout = "", stderr = "";
+    // Node's StringDecoder buffers a multi-byte UTF-8 sequence split across chunks instead of
+    // decoding each chunk independently (which would turn the split character into U+FFFD).
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
     child.stdout.on("data", (d) => (stdout += d));
     child.stderr.on("data", (d) => (stderr += d));
     child.on("error", (err: NodeJS.ErrnoException) => {

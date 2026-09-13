@@ -33,7 +33,7 @@ export type Manifest = {
   customPlugins: { feature: string; plugin: string; postType: string; block: string }[];
   forms: { id: string; name: string; gfId: number }[];
   articles: string[];
-  qa: { urls: number; reviewed: number; remainingIssues: number; report: string } | null;
+  qa: { urls: number; reviewed: number; remainingIssues: number; workspaceReport: string } | null;
   costUsd: number;
   files: Record<string, number>;
 };
@@ -57,7 +57,7 @@ export function buildManifest(i: ManifestInput): Manifest {
     customPlugins: i.manifests.map((m) => ({ feature: m.feature, plugin: m.plugin, postType: m.postType, block: m.block })),
     forms: i.spec.forms.filter((f) => i.forms[f.id]).map((f) => ({ id: f.id, name: f.name, gfId: i.forms[f.id].gfId })),
     articles: i.spec.blog.articles.map((a) => articleSlug(a.title)),
-    qa: i.qa ? { urls: i.qa.totals.urls, reviewed: i.qa.totals.reviewed, remainingIssues: i.qa.totals.remainingIssues, report: QA_REPORT_MD } : null,
+    qa: i.qa ? { urls: i.qa.totals.urls, reviewed: i.qa.totals.reviewed, remainingIssues: i.qa.totals.remainingIssues, workspaceReport: QA_REPORT_MD } : null,
     costUsd: i.ctx.state.costUsd,
     files: i.files,
   };

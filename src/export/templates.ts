@@ -1,4 +1,4 @@
-import { SITE_URL_PLACEHOLDER } from "./db.js";
+import { SITE_URL_PLACEHOLDER, escapeSlashes } from "./db.js";
 
 /** Decision 15: the same stack as docker/docker-compose.yml, parameterized by .env, without WP_DEBUG. */
 export function prodCompose(): string {
@@ -26,7 +26,7 @@ export function prodCompose(): string {
       db:
         condition: service_healthy
     ports:
-      - "\${SITE_PORT}:80"
+      - "127.0.0.1:\${SITE_PORT}:80"
     environment: &wpenv
       WORDPRESS_DB_HOST: db
       WORDPRESS_DB_NAME: wordpress
@@ -40,6 +40,7 @@ export function prodCompose(): string {
 
   wpcli:
     image: wordpress:cli-php8.3
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -77,8 +78,6 @@ export type ReadmeInput = {
   vendorPlugins: string[];
 };
 
-const esc = (u: string): string => u.replace(/\//g, "\\/");
-
 /** Decision 16: the restore runbook for Partikuls ops, in French. The real url is an example the operator replaces. */
 export function restoreReadme(i: ReadmeInput): string {
   const W = "docker compose -f docker-compose.prod.yml exec -T wpcli wp";
@@ -102,24 +101,26 @@ Site WordPress GeneratePress + GenerateBlocks généré par Faktory (\`${i.slug}
 \`\`\`bash
 cp .env.example .env            # puis éditer : SITE_PORT, DB_PASSWORD, DB_ROOT_PASSWORD
 tar -xzf wp-content.tar.gz      # crée ./wp-content
+sudo chown -R 33:33 wp-content   # www-data dans les conteneurs : sinon Apache ne peut pas écrire (médias, mises à jour)
 docker compose -f docker-compose.prod.yml up -d --wait
 ${W} db check                   # répéter jusqu'à succès : WordPress écrit wp-config.php au premier démarrage
 ${W} db import - < db.sql
 ${W} search-replace '${SITE_URL_PLACEHOLDER}' '${real}' --all-tables-with-prefix
-${W} search-replace '${esc(SITE_URL_PLACEHOLDER)}' '${esc(real)}' --all-tables-with-prefix   # forme JSON (index Yoast)
+${W} search-replace '${escapeSlashes(SITE_URL_PLACEHOLDER)}' '${escapeSlashes(real)}' --all-tables-with-prefix   # forme JSON (index Yoast)
 ${W} yoast index --reindex --skip-confirmation
 ${W} rewrite flush
-${W} user update admin --user_pass='un-nouveau-mot-de-passe'   # ou : wp user create … --role=administrator puis wp user delete admin --reassign=<id>
+${W} user update admin --user_pass='un-nouveau-mot-de-passe'   # OBLIGATOIRE : changer le mot de passe admin généré en local — ou : wp user create … --role=administrator puis wp user delete admin --reassign=<id>
 \`\`\`
 
 Remplacer \`${real}\` par l'URL réelle (avec le schéma, sans barre finale). Ouvrir ensuite la page d'accueil, une page intérieure et le formulaire de contact.
 
 ## Après la restauration
 
+- **Confidentialité** : \`db.sql\` contient le hash du mot de passe administrateur et les données du site ; transmettre ce dossier par un canal privé, le supprimer après restauration, ne jamais le joindre à un ticket.
 - **E-mails** : le conteneur n'envoie aucun mail. Installer une extension SMTP (ou configurer le relais de l'hébergeur) avant de compter sur les notifications Gravity Forms.
 - **Licences** : ${i.vendorPlugins.join(", ")} sont installés sans clé ; renseigner les clés (GP Premium, GenerateBlocks Pro, Gravity Forms) dans leurs réglages pour recevoir les mises à jour.
 - **Supervision** : ajouter le site dans WP Umbrella avec le nouvel administrateur.
-- **HTTPS** : placer le port \`SITE_PORT\` derrière le reverse proxy TLS de l'hébergeur ; l'URL du site est déjà en \`https://\`.
+- **HTTPS** : placer le port \`SITE_PORT\` derrière le reverse proxy TLS de l'hébergeur ; l'URL du site est déjà en \`https://\` ; le port n'est exposé que sur \`127.0.0.1\` ; le reverse proxy TLS de l'hébergeur tourne sur la même machine (sinon retirer le préfixe \`127.0.0.1:\` dans \`docker-compose.prod.yml\`).
 
 ## Ce que contient le site
 
