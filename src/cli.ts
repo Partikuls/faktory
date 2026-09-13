@@ -48,6 +48,8 @@ program.command("run <slug>").description("Run the pipeline from the first incom
   });
 program.command("provision <slug>").description("Alias for run --only provision")
   .action(async (slug: string) => { await runSite(loadConfig(), slug, { only: "provision" }); });
+program.command("export <slug>").description("Alias for run --only export (writes sites/<slug>/dist/)")
+  .action(async (slug: string) => { await runSite(loadConfig(), slug, { only: "export" }); });
 program.command("approve <slug>").description("Mark the awaiting checkpoint as approved (re-syncs JSON from an edited markdown when needed)")
   .option("--max-cost <usd>", "Stop before approving once the cumulated cost reaches this amount (default: faktory.config.json maxCostUsd)")
   .action(async (slug: string, opts: { maxCost?: string }) => { const s = await approveSite(withMaxCost(opts.maxCost), slug); console.log(`Approved. Next: faktory run ${s.slug}`); });

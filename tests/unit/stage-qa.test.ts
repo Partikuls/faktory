@@ -89,7 +89,7 @@ describe("qa stage", () => {
     expect(registry.qa).toBe(qaStage);
     expect(qaStage.checkpoint).toBeFalsy();
     expect(QA_CONCURRENCY).toBe(3);
-    expect(Object.keys(registry)).toEqual(["spec", "design", "provision", "pages", "plugins", "content", "qa"]);
+    expect(Object.keys(registry)).toEqual(["spec", "design", "provision", "pages", "plugins", "content", "qa", "export"]);
   });
   it("targets every sitemap page then every article", async () => {
     const c = await ctx();
