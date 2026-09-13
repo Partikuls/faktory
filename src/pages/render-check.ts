@@ -63,7 +63,7 @@ export async function assertRendered(ctx: SiteContext, page: Page, featureId: st
   await assertPageContains(ctx, page, `${RENDER_ATTR}="${featureId}"`, "check the render function and that the block is registered");
 }
 
-export const formNeedle = (gfId: number): string => `gform_wrapper_${gfId}`;
+export const formNeedle = (gfId: number): string => `gform_wrapper_${gfId}"`;
 
 /** The published-page half of the forms contract: the Gravity Forms block placed by `content` or `pages` must render its wrapper. */
 export async function assertFormRendered(ctx: SiteContext, page: Page, gfId: number): Promise<void> {

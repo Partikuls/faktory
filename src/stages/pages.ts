@@ -16,7 +16,7 @@ export const deps = { ensurePages, generatePageTree, compilePage, publishPage };
 // Each of these concurrent agents gets the whole remaining budget as its own maxBudgetUsd cap
 // (see the comment on remainingBudget in src/agent.ts), so up to PAGES_CONCURRENCY - 1 extra
 // runs' worth of cost can land before the site's maxCostUsd is enforced again. Proper per-run
-// budget splitting is deferred to phase 4.
+// budget splitting is still deferred (phase 5).
 export const PAGES_CONCURRENCY = 3;
 
 export const pagesStage: Stage = {

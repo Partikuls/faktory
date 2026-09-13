@@ -72,6 +72,11 @@ describe("countWords / inlineHtmlIssues", () => {
       "blocks.2: forbidden inline HTML <img src=\"x\">",
     ]);
   });
+  it("refuses a protocol-relative href", () => {
+    const bad: string[] = [];
+    inlineHtmlIssues('<a href="//evil.com/x">x</a>', "p", bad);
+    expect(bad).toEqual(['p: forbidden inline HTML <a href="//evil.com/x"> (href must start with / or https://)']);
+  });
   it("catches the denylist in plain text, not just inside tags", () => {
     const i1: string[] = [];
     inlineHtmlIssues("Cliquez ici: javascript:alert(1)", "p", i1);

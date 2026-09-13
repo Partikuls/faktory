@@ -56,8 +56,8 @@ export function addCost(state: SiteState, usd: number): SiteState {
 // Each agent run receives the *whole* remaining budget as its `maxBudgetUsd` cap (the SDK has no
 // notion of "N runs share this budget"). With N concurrent agents (see PAGES_CONCURRENCY in
 // src/stages/pages.ts) that means the site can overshoot `maxCostUsd` by up to (N-1) x one run's
-// cost before the next stage sees the overrun and stops. Proper per-run splitting is deferred to
-// phase 4.
+// cost before the next stage sees the overrun and stops. Proper per-run splitting is still
+// deferred (phase 5).
 export function remainingBudget(ctx: SiteContext): number {
   return Math.max(0.05, Math.round((ctx.config.maxCostUsd - ctx.state.costUsd) * 100) / 100);
 }

@@ -132,4 +132,18 @@ describe("content stage", () => {
     expect(s.seo).not.toHaveBeenCalled();
     expect(s.gen).not.toHaveBeenCalled();
   });
+  it("rejects two blog articles that slugify to the same slug, before generating anything", async () => {
+    const dupSpec: SiteSpec = {
+      ...spec,
+      blog: { ...spec.blog, articles: [
+        { ...spec.blog.articles[0], title: "Nos meilleures brioches !" },
+        { ...spec.blog.articles[1], title: "Nos meilleures brioches ?" },
+        spec.blog.articles[2],
+      ] },
+    };
+    const c = await ctx(dupSpec);
+    const s = spies();
+    await expect(contentStage.run(c)).rejects.toThrow(/two blog articles share the slug "nos-meilleures-brioches" — change one title in SITE-SPEC.md and run: faktory resync boul/);
+    expect(s.gen).not.toHaveBeenCalled();
+  });
 });

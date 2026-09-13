@@ -47,9 +47,9 @@ describe("assertRendered / assertFormRendered", () => {
     expect(f).toHaveBeenCalledWith("http://localhost:8100/contact/");
   });
   it("assertFormRendered requires gform_wrapper_<gfId> on the page", async () => {
-    expect(formNeedle(7)).toBe("gform_wrapper_7");
+    expect(formNeedle(7)).toBe('gform_wrapper_7"');
     vi.spyOn(deps, "fetchText").mockResolvedValue('<div class="gform_wrapper gravity-theme" id="gform_wrapper_7">');
     await expect(assertFormRendered(ctx, contact, 7)).resolves.toBeUndefined();
-    await expect(assertFormRendered(ctx, contact, 8)).rejects.toThrow(/\/contact\/ \(contact\) does not render gform_wrapper_8 — check that Gravity Forms is active and form #8 exists/);
+    await expect(assertFormRendered(ctx, contact, 8)).rejects.toThrow(/\/contact\/ \(contact\) does not render gform_wrapper_8" — check that Gravity Forms is active and form #8 exists/);
   });
 });

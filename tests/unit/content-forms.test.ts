@@ -6,8 +6,9 @@ import { loadConfig } from "../../src/config.js";
 import { initSite } from "../../src/workspace.js";
 import { loadContext } from "../../src/pipeline.js";
 import { pageTreePath } from "../../src/artifacts.js";
-import { parseSiteSpec, type Page } from "../../src/schemas/site-spec.js";
-import { formMarker, FORM_WRAPPER_ATTR, type PageTree } from "../../src/schemas/page-tree.js";
+import { parseSiteSpec, type Page, type SiteSpec } from "../../src/schemas/site-spec.js";
+import { featureMarker, formMarker, FEATURE_WRAPPER_ATTR, FORM_WRAPPER_ATTR, type PageTree } from "../../src/schemas/page-tree.js";
+import { parsePluginManifest } from "../../src/schemas/plugin-manifest.js";
 import { gfPlacement, formsManifestPath } from "../../src/schemas/forms-manifest.js";
 import { buildGfForm, ensureForms, integrateForms, deps } from "../../src/content/forms.js";
 import { deps as renderDeps } from "../../src/pages/render-check.js";
@@ -16,6 +17,7 @@ import type { SiteContext } from "../../src/docker.js";
 const spec = parseSiteSpec(JSON.parse(readFileSync("fixtures/specs/boulangerie.site-spec.json", "utf8")));
 const devis = spec.forms.find((f) => f.id === "devis_evenement")!;
 const contactForm = spec.forms.find((f) => f.id === "contact")!;
+const pluginManifest = parsePluginManifest(JSON.parse(readFileSync("fixtures/plugins/catalogue_produits.manifest.json", "utf8")));
 const IDS: Record<string, number> = { accueil: 10, "nos-produits": 11, "commandes-evenements": 12, "la-maison": 13, actualites: 14, contact: 15 };
 
 function stubTree(page: Page): PageTree {
@@ -150,18 +152,38 @@ describe("integrateForms", () => {
     const c = await ctx();
     mkdirSync(join(c.siteDir, "pages"), { recursive: true });
     copyFileSync("fixtures/plugins/catalogue_produits.manifest.json", join(c.siteDir, "plugins/catalogue_produits.json"));
-    const commandes = spec.sitemap.find((p) => p.slug === "commandes-evenements")!;
-    writeFileSync(pageTreePath(c, "commandes-evenements"), JSON.stringify(stubTree(commandes)));
-    spies();
-    const r = await integrateForms(c, spec, manifest, IDS);
-    expect(r.pages).toEqual(["commandes-evenements"]);
+    // catalogue_produits places on accueil / nos-produits, neither of which carries a form in the
+    // fixture spec — give nos-produits one here so the tree exercises both wrappers at once.
+    const specWithForm: SiteSpec = {
+      ...spec,
+      sitemap: spec.sitemap.map((p) => (p.slug === "nos-produits" ? { ...p, sections: [...p.sections, { type: "form", heading: "Contact", summary: "Contact", form: "contact" }] } : p)),
+    };
+    const tree: PageTree = [{
+      type: "element", tagName: "section", innerBlocks: [
+        { type: "text", tagName: "h1", content: "Nos produits" },
+        { type: "element", tagName: "div", htmlAttributes: { [FEATURE_WRAPPER_ATTR]: "catalogue_produits" }, innerBlocks: [
+          { type: "raw", rawMarkup: featureMarker("catalogue_produits") } ] },
+        { type: "element", tagName: "div", htmlAttributes: { [FORM_WRAPPER_ATTR]: "contact" }, innerBlocks: [
+          { type: "raw", rawMarkup: formMarker("contact") } ] },
+      ],
+    }];
+    writeFileSync(pageTreePath(c, "nos-produits"), JSON.stringify(tree));
+    const s = spies(() => '<div data-faktory-plugin="catalogue_produits"></div><div id="gform_wrapper_1"></div>');
+    const r = await integrateForms(c, specWithForm, manifest, IDS);
+    expect(r.pages).toEqual(["nos-produits"]);
+    const compiled = s.compile.mock.calls[0][2] as PageTree;
+    const json = JSON.stringify(compiled);
+    expect(json).toContain(pluginManifest.placements["nos-produits"]!.replace(/"/g, '\\"'));
+    expect(json).not.toContain(FEATURE_WRAPPER_ATTR);
+    expect(json).toContain(gfPlacement(1).replace(/"/g, '\\"'));
+    expect(json).not.toContain(FORM_WRAPPER_ATTR);
   });
   it("fails when the published page does not render the wrapper", async () => {
     const c = await ctx();
     const contact = spec.sitemap.find((p) => p.slug === "contact")!;
     writeFileSync(pageTreePath(c, "contact"), JSON.stringify(stubTree(contact)));
     spies(() => "<html>no form</html>");
-    await expect(integrateForms(c, spec, manifest, IDS)).rejects.toThrow(/\/contact\/ \(contact\) does not render gform_wrapper_1/);
+    await expect(integrateForms(c, spec, manifest, IDS)).rejects.toThrow(/\/contact\/ \(contact\) does not render gform_wrapper_1"/);
   });
   it("fails on a page with a tree but no WordPress id", async () => {
     const c = await ctx();

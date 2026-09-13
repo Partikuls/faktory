@@ -35,6 +35,9 @@ export const contentStage: Stage = {
 
     // 3. articles (one agent each, ARTICLES_CONCURRENCY in flight)
     const categories = await deps.ensureCategories(ctx, spec);
+    const slugs = spec.blog.articles.map((a) => articleSlug(a.title));
+    const dup = slugs.filter((s, i) => slugs.indexOf(s) !== i);
+    if (dup.length) throw new Error(`two blog articles share the slug "${dup[0]}" — change one title in SITE-SPEC.md and run: faktory resync ${ctx.slug}`);
     const generated: string[] = [], reused: string[] = [], published: string[] = [];
     let cost = 0;
     const build = async (article: SpecArticle): Promise<string> => {
@@ -62,13 +65,14 @@ export const contentStage: Stage = {
         console.error(`  ✖ ${articleSlug(spec.blog.articles[i].title)}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
       }
     });
+    // Budget exhaustion is a global condition, not a per-article failure: surface it as-is (every
+    // rejection was already logged above).
     for (const r of results) {
       if (r.status === "rejected" && r.reason instanceof Error && r.reason.message.includes("Cost budget reached")) throw r.reason;
     }
     if (failed.length) {
       throw new Error(`${failed.length} article(s) failed: ${failed.join(", ")} — fix or delete content/articles/<slug>.json and re-run: faktory run ${ctx.slug} --only content`);
     }
-    const slugs = spec.blog.articles.map((a) => articleSlug(a.title));
     await deps.assertBlogLists(ctx, spec, slugs);
     return `${formsMsg}; seo: ${seoDone.length} pages; articles: ${published.length} published (${slugs.join(", ")}); ${generated.length} generated, ${reused.length} reused — $${cost.toFixed(2)}`;
   },

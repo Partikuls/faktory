@@ -81,10 +81,10 @@ export function readFormsManifest(ctx: SiteContext): FormsManifest {
   if (!existsSync(p)) return {};
   let data: unknown;
   try { data = JSON.parse(readFileSync(p, "utf8")); }
-  catch (err) { throw new Error(`${FORMS_MANIFEST_REL} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`); }
+  catch (err) { throw new Error(`${FORMS_MANIFEST_REL} is not valid JSON: ${err instanceof Error ? err.message : String(err)} — fix or delete it (the content stage recreates it)`); }
   let m: FormsManifest;
   try { m = parseFormsManifest(data); }
-  catch (err) { throw new Error(`${FORMS_MANIFEST_REL}: ${err instanceof Error ? err.message : String(err)}`); }
+  catch (err) { throw new Error(`${FORMS_MANIFEST_REL}: ${err instanceof Error ? err.message : String(err)} — fix or delete it (the content stage recreates it)`); }
   assertFormsManifest(m);
   return m;
 }

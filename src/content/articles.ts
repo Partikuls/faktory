@@ -138,7 +138,9 @@ export async function assertBlogLists(ctx: SiteContext, spec: SiteSpec, slugs: s
   const blog = spec.sitemap.find((p) => p.kind === "blog");
   if (!blog) return;
   const url = pageUrl(ctx, blog);
-  for (const slug of slugs) {
-    await assertContains(ctx, url, `href="${siteUrl(ctx)}/${slug}/"`, "the posts page does not list the article; check page_for_posts");
+  const html = await assertContains(ctx, url, `href="${siteUrl(ctx)}/${slugs[0]}/"`, "the posts page does not list the article; check page_for_posts");
+  for (const slug of slugs.slice(1)) {
+    const needle = `href="${siteUrl(ctx)}/${slug}/"`;
+    if (!html.includes(needle)) throw new Error(`${url} does not contain "${needle}" — the posts page does not list the article; check page_for_posts`);
   }
 }

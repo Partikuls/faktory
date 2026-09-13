@@ -15,7 +15,7 @@ export const PLACEHOLDER = "[à confirmer]";
 
 /** Deterministic post_name from the spec's article title: accents stripped, kebab-case, ≤ 60 chars. */
 export function articleSlug(title: string): string {
-  const s = title.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+  const s = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const cut = s.slice(0, 60).replace(/-+$/g, "");
   return cut || "article";
@@ -88,7 +88,7 @@ export function inlineHtmlIssues(text: string, at: string, issues: string[]): vo
     if (DENYLIST_RE.test(tag)) continue; // already reported above
     const m = tag.match(ALLOWED_RE);
     if (!m) { issues.push(`${at}: forbidden inline HTML ${tag}`); continue; }
-    if (m[2] !== undefined && !(m[2].startsWith("/") || m[2].startsWith("https://"))) {
+    if (m[2] !== undefined && !((m[2].startsWith("/") && !m[2].startsWith("//")) || m[2].startsWith("https://"))) {
       issues.push(`${at}: forbidden inline HTML ${tag} (href must start with / or https://)`);
     }
   }
