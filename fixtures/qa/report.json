@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-09-13T16:00:00.000Z",
+  "siteUrl": "http://localhost:8101",
+  "costUsd": 1.23,
+  "totals": { "urls": 2, "reviewed": 1, "ok": 0, "fixed": 1, "needsHuman": 0, "remainingIssues": 0 },
+  "pages": [
+    {
+      "slug": "contact", "kind": "contact", "url": "http://localhost:8101/contact/", "status": 200,
+      "check": {
+        "url": "http://localhost:8101/contact/", "status": 200, "consoleErrors": [], "pageErrors": [], "failedRequests": [],
+        "brokenLinks": [], "brokenImages": [], "missingAlt": 0, "unstyledBlocks": [], "h1Count": 1, "mobileOverflow": false,
+        "checkedAt": "2026-09-13T15:25:27.000Z"
+      },
+      "screenshots": { "desktop": "qa/contact.desktop.png", "mobile": "qa/contact.mobile.png" },
+      "reviewed": true, "reused": false, "treeHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000", "rounds": 1,
+      "verdict": "fixed", "summary": "Bouton du formulaire sans état focus, corrigé.",
+      "issues": [ { "severity": "minor", "where": "section form", "what": "bouton sans focus-visible", "action": "fixed" } ],
+      "costUsd": 1.23
+    },
+    {
+      "slug": "actualites", "kind": "blog", "url": "http://localhost:8101/actualites/", "status": 200,
+      "check": {
+        "url": "http://localhost:8101/actualites/", "status": 200, "consoleErrors": [], "pageErrors": [], "failedRequests": [],
+        "brokenLinks": [], "brokenImages": [], "missingAlt": 0, "unstyledBlocks": [], "h1Count": 1, "mobileOverflow": false,
+        "checkedAt": "2026-09-13T15:25:40.000Z"
+      },
+      "screenshots": { "desktop": "qa/actualites.desktop.png", "mobile": "qa/actualites.mobile.png" },
+      "reviewed": false, "reused": false, "rounds": 0, "issues": [], "costUsd": 0
+    }
+  ]
+}
