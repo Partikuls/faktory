@@ -9,11 +9,13 @@
     "test:integration": "vitest run tests/integration --testTimeout=600000 --hookTimeout=600000",
     "typecheck": "tsc --noEmit",
     "sync-skills": "bash scripts/sync-skills.sh",
-    "setup-phpstan": "composer install -d tools/phpstan --no-interaction"
+    "setup-phpstan": "composer install -d tools/phpstan --no-interaction",
+    "setup-playwright": "playwright install chromium"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.269",
     "commander": "^12.1.0",
+    "playwright": "^1.63.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

@@ -13,6 +13,7 @@ import { gbScript } from "./gb.js";
 import { findVendorZip, VENDOR_PLUGINS } from "./provision/stack.js";
 import { TOOL_WP } from "./tools/server.js";
 import { phpstanBin } from "./php.js";
+import { chromiumInstalled } from "./qa/browser.js";
 
 function asStage(v: string | undefined): StageName | undefined {
   if (v === undefined) return undefined;
@@ -47,6 +48,8 @@ program.command("run <slug>").description("Run the pipeline from the first incom
   });
 program.command("provision <slug>").description("Alias for run --only provision")
   .action(async (slug: string) => { await runSite(loadConfig(), slug, { only: "provision" }); });
+program.command("export <slug>").description("Alias for run --only export (writes sites/<slug>/dist/)")
+  .action(async (slug: string) => { await runSite(loadConfig(), slug, { only: "export" }); });
 program.command("approve <slug>").description("Mark the awaiting checkpoint as approved (re-syncs JSON from an edited markdown when needed)")
   .option("--max-cost <usd>", "Stop before approving once the cumulated cost reaches this amount (default: faktory.config.json maxCostUsd)")
   .action(async (slug: string, opts: { maxCost?: string }) => { const s = await approveSite(withMaxCost(opts.maxCost), slug); console.log(`Approved. Next: faktory run ${s.slug}`); });
@@ -82,6 +85,7 @@ program.command("doctor").description("Check local toolchain and skill loading")
     checks.push(["php", await ver("php", ["--version"]), "needed by php_check (brew install php)"]);
     checks.push(["composer", await ver("composer", ["--version"]), "needed by npm run setup-phpstan"]);
     checks.push(["phpstan", existsSync(phpstanBin(config)), "run npm run setup-phpstan"]);
+    checks.push(["playwright chromium", chromiumInstalled(), "run npm run setup-playwright"]);
     checks.push(["skills synced", existsSync(join(pluginPath(config), "skills", "generatepress-generateblocks", "SKILL.md")), "run npm run sync-skills"]);
     const gbProbe = await run("python3", [gbScript(config, "gb_build.py")], { input: JSON.stringify({ type: "text", content: "ok" }) });
     checks.push(["gb_build.py", gbProbe.code === 0 && gbProbe.stdout.includes("wp:generateblocks/text"), "python3 + synced skills required"]);

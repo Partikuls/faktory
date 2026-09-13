@@ -5,14 +5,13 @@ import { hasArtifact, readJsonArtifact, pageTreePath } from "../artifacts.js";
 import { mapLimit } from "../concurrency.js";
 import { ensurePages } from "../provision/pages.js";
 import { generatePageTree, readPageTree } from "../pages/generate.js";
-import { compilePage, publishPage } from "../pages/publish.js";
-import { applyPlacements, pluginPlacements, formPlacements, readPluginManifests, readFormsManifest } from "../pages/placements.js";
-import { assertRendered, assertFormRendered } from "../pages/render-check.js";
+import { republishPage } from "../pages/publish.js";
+import { readPluginManifests, readFormsManifest } from "../pages/placements.js";
 import { parseSiteSpec, type Page } from "../schemas/site-spec.js";
 import { parseDesignTokens } from "../schemas/design-tokens.js";
-import { FEATURE_WRAPPER_ATTR, FORM_WRAPPER_ATTR, type PageTree } from "../schemas/page-tree.js";
+import type { PageTree } from "../schemas/page-tree.js";
 
-export const deps = { ensurePages, generatePageTree, compilePage, publishPage };
+export const deps = { ensurePages, generatePageTree, republishPage };
 // Each of these concurrent agents gets the whole remaining budget as its own maxBudgetUsd cap
 // (see the comment on remainingBudget in src/agent.ts), so up to PAGES_CONCURRENCY - 1 extra
 // runs' worth of cost can land before the site's maxCostUsd is enforced again. Proper per-run
@@ -50,18 +49,9 @@ export const pagesStage: Stage = {
         const g = await deps.generatePageTree(ctx, spec, page, { homeSlug: page.kind === "home" ? undefined : home.slug });
         tree = g.tree; cost += g.costUsd; generated.push(page.slug);
       }
-      const formPl = formPlacements(forms, page);
-      const a = applyPlacements(tree, [...pluginPlacements(manifests, page.slug), ...formPl]);
-      const features = a.applied.filter((p) => p.attr === FEATURE_WRAPPER_ATTR).map((p) => p.id);
-      const appliedForms = a.applied.filter((p) => p.attr === FORM_WRAPPER_ATTR).map((p) => p.id);
-      features.forEach((id) => applied.add(id));
-      appliedForms.forEach((id) => formsApplied.add(id));
-      const markup = await deps.compilePage(ctx, page.slug, a.tree);
-      await deps.publishPage(ctx, ids[page.slug], markup);
-      // Fresh-site order (provision → plugins → pages → content): the plugins/content stages had no tree to
-      // insert into, so this is where the render contract of every applied plugin and form is checked.
-      for (const id of features) await assertRendered(ctx, page, id);
-      for (const id of appliedForms) await assertFormRendered(ctx, page, forms[id].gfId);
+      const r = await deps.republishPage(ctx, spec, page, ids[page.slug], tree, { manifests, forms });
+      r.features.forEach((id) => applied.add(id));
+      r.forms.forEach((id) => formsApplied.add(id));
       console.log(`  ✔ ${page.kind === "home" ? "/" : `/${page.slug}/`} published`);
     };
 

@@ -39,4 +39,8 @@ describe("prompts", () => {
     const p = loadPrompt("content");
     for (const s of ["brief.md", "SITE-SPEC.md", "700 à 900 mots", "[à confirmer]", "<strong>", "paragraphe d'accroche"]) expect(p).toContain(s);
   });
+  it("loads the qa prompt with its key rules", () => {
+    const p = loadPrompt("qa");
+    for (const s of ["design-system.md", "pages/<slug>.gb.json", "data-faktory-feature", "data-faktory-form", "gb_build", "needs_human", "action: \"left\""]) expect(p).toContain(s);
+  });
 });

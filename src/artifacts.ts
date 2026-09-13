@@ -68,3 +68,4 @@ export const pageTreePath = (ctx: SiteContext, slug: string): string => join(ctx
 export const pageMarkupPath = (ctx: SiteContext, slug: string): string => join(ctx.siteDir, pageMarkupRel(slug));
 
 export const CONTENT_DIR = "content";
+export const DIST_DIR = "dist";

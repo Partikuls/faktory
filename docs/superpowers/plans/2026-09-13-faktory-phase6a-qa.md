@@ -1467,7 +1467,8 @@ import { checkIssues, qaReportJsonPath, qaReportMdPath, QA_DIR, type QaPage, typ
 const VERDICT_FR: Record<NonNullable<QaPage["verdict"]>, string> = { ok: "ok", fixed: "corrigée", needs_human: "à revoir" };
 const yesNo = (b: boolean): string => (b ? "oui" : "non");
 const rel = (p: string): string => p.startsWith(`${QA_DIR}/`) ? p.slice(QA_DIR.length + 1) : p;
-const plural = (n: number, s: string, p: string): string => `${n} ${n === 1 ? s : p}`;
+// French: zero takes the singular ("0 défaut restant")
+const plural = (n: number, s: string, p: string): string => `${n} ${n > 1 ? p : s}`;
 
 function pathOf(url: string): string {
   const u = new URL(url);

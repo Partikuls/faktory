@@ -10,6 +10,7 @@ import { parseSiteSpec, type Page } from "../../src/schemas/site-spec.js";
 import { featureMarker, formMarker, FORM_WRAPPER_ATTR, type PageTree } from "../../src/schemas/page-tree.js";
 import { gfPlacement } from "../../src/schemas/forms-manifest.js";
 import { pagesStage, deps, PAGES_CONCURRENCY } from "../../src/stages/pages.js";
+import { deps as publishDeps } from "../../src/pages/publish.js";
 import { deps as renderDeps } from "../../src/pages/render-check.js";
 
 const spec = parseSiteSpec(JSON.parse(readFileSync("fixtures/specs/boulangerie.site-spec.json", "utf8")));
@@ -61,8 +62,8 @@ function spies(opts: { fail?: string[]; delay?: boolean; html?: string } = {}) {
     if (opts.fail?.includes(page.slug)) throw new Error(`pages: output still invalid after one retry — pages/${page.slug}.gb.json was not written`);
     return { tree: stubTree(page), costUsd: 1, attempts: 1 as const };
   });
-  const compile = vi.spyOn(deps, "compilePage").mockImplementation(async (_c, slug) => { order.push(`compile:${slug}`); return `<!-- ${slug} -->`; });
-  const publish = vi.spyOn(deps, "publishPage").mockImplementation(async (_c, id) => { order.push(`publish:${id}`); });
+  const compile = vi.spyOn(publishDeps, "compilePage").mockImplementation(async (_c, slug) => { order.push(`compile:${slug}`); return `<!-- ${slug} -->`; });
+  const publish = vi.spyOn(publishDeps, "publishPage").mockImplementation(async (_c, id) => { order.push(`publish:${id}`); });
   const fetchText = vi.spyOn(renderDeps, "fetchText").mockImplementation(async (url) => {
     order.push(`fetch:${url}`);
     return opts.html ?? '<html><div data-faktory-plugin="catalogue_produits"></div></html>';

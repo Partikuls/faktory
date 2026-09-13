@@ -12,6 +12,8 @@ import { designStage } from "./stages/design.js";
 import { pagesStage } from "./stages/pages.js";
 import { pluginsStage } from "./stages/plugins.js";
 import { contentStage } from "./stages/content.js";
+import { qaStage } from "./stages/qa.js";
+import { exportStage } from "./stages/export.js";
 
 export { assertBudget };
 
@@ -23,7 +25,7 @@ export interface Stage {
   onApprove?(ctx: SiteContext): Promise<string | void>;
 }
 
-export const registry: Partial<Record<StageName, Stage>> = { spec: specStage, design: designStage, provision: provisionStage, pages: pagesStage, plugins: pluginsStage, content: contentStage };
+export const registry: Partial<Record<StageName, Stage>> = { spec: specStage, design: designStage, provision: provisionStage, pages: pagesStage, plugins: pluginsStage, content: contentStage, qa: qaStage, export: exportStage };
 
 export const deps = { composeDown };
 

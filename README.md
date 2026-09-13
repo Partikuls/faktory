@@ -7,6 +7,7 @@ WordPress AI software factory: `brief.md` in, GeneratePress/GenerateBlocks site 
 npm install
 npm run sync-skills                 # copies GP/GB + WP skills from ~/.claude/skills into plugin/skills
 npm run setup-phpstan               # composer install into tools/phpstan (php + composer on the host), needed by the plugins stage
+npm run setup-playwright            # downloads Chromium for the qa stage (doctor checks it)
 cp docker/.env.example docker/.env  # optional license keys (not used yet)
 # drop gp-premium*.zip, generateblocks-pro*.zip, gravityforms*.zip, gravityformscli*.zip into docker/vendor/
 npm run faktory -- doctor           # add --agent to verify skill loading with a real query
@@ -22,11 +23,13 @@ npm run faktory -- run boulangerie          # spec → stops: edit sites/boulang
 npm run faktory -- approve boulangerie      # re-syncs site-spec.json if you edited the markdown
 npm run faktory -- run boulangerie          # design → stops: open preview.html, edit design-system.md
 npm run faktory -- approve boulangerie      # re-syncs design-tokens.json if you edited the markdown
-npm run faktory -- run boulangerie          # provision (WP + GP stack, identity, menu, tokens, footer) then pages (one agent per page, home first, then 3 in parallel): neither is a checkpoint, so one `run` does both
+npm run faktory -- run boulangerie          # provision (WP + GP stack, identity, menu, tokens, footer) then pages (one agent per page, home first, then 3 in parallel): neither is a checkpoint, so one `run` does both — and, unless `--only` narrows it, this same `run` keeps going through `plugins`, `content`, `qa` and `export` too: spec and design are the only checkpoints, so one `run boulangerie` after the design approval drives the whole rest of the pipeline to `dist/`
 npm run faktory -- run boulangerie --only design --max-cost 10
 npm run faktory -- approve boulangerie --max-cost 10
 npm run faktory -- run boulangerie --only pages --max-cost 15
 npm run faktory -- run boulangerie --only plugins --max-cost 30   # one agent per feature: writes wp-content/plugins/faktory-<id>/, php_check, activates, seeds, then inserts the block into the pages
+npm run faktory -- run boulangerie --only qa --max-cost 10   # browser checks + screenshots of every url, one review agent per generated page (≤ 2 fix rounds), qa/QA-REPORT.md
+npm run faktory -- export boulangerie             # $0: sites/boulangerie/dist/ — db.sql (URL placeholder), wp-content.tar.gz, prod compose, README, MANIFEST
 npm run faktory -- resync boulangerie       # re-syncs any checkpoint JSON whose .md you edited after approve (also --max-cost)
 npm run faktory -- destroy boulangerie
 npm run faktory -- doctor --agent
@@ -45,6 +48,10 @@ Site URL: `http://localhost:<port>` (ports start at 8100). Admin: `admin` / pass
 | `pages/<slug>.gb.json` / `pages/<slug>.html` | pages stage | Edit the `.gb.json` (gb_build tree); the next `run --only pages` recompiles and republishes it without any LLM call. Delete it to regenerate the page. The agent may also leave `pages/<slug>.gb.html` (its own `gb_build` self-check) and `pages/<slug>.preview.html` (its `gb_preview`) next to Faktory's own `pages/<slug>.html`; those are scratch files, not artifacts Faktory reads back. |
 | `plugins/<id>.json` | plugins stage | Manifest (block, shortcode, one block placement per page). Delete it to regenerate the plugin; edit `placements` and re-run `--only plugins` (or `--only pages`) to change how the block is inserted without any LLM call. |
 | `wp-content/plugins/faktory-<kebab>/` | plugins stage | The plugin itself (bind-mounted into WordPress). Hand-edit it, then `--only plugins` re-runs php_check and the checks. |
+| `qa/<slug>.check.json` | qa stage | Written by qa, not editable |
+| `qa/<slug>.{desktop,mobile}[.N].png` | qa stage | Written by qa, not editable |
+| `qa/report.json` / `qa/QA-REPORT.md` | qa stage | Written by qa, not editable; delete `report.json` to force every page to be reviewed again |
+| `dist/*` (`db.sql`, `wp-content.tar.gz`, `docker-compose.prod.yml`, `.env.example`, `README.md`, `MANIFEST.json`) | export stage | Written by export, rewritten every run, not editable |
 
 ### Markers for later stages
 Sections whose content comes from a later stage carry an HTML-comment marker inside a `raw` node of the tree — `<!-- faktory:feature:<id> -->` for a `custom-query` section, `<!-- faktory:form:<id> -->` for `form`/`contact` sections — and that marker node sits, together with its placeholder content (the 3 example cards, or the "bientôt disponible" card), inside one wrapper `element` carrying `htmlAttributes: { "data-faktory-feature": "<id>" }` or `{ "data-faktory-form": "<id>" }`.
@@ -84,6 +91,12 @@ uninstall.php                # WP_UNINSTALL_PLUGIN guard, deletes posts/terms/me
 ### Content
 `content` runs after `pages`, in three sub-steps. **Forms**: one Gravity Forms form per `spec.forms[i]`, built by Faktory (field types, required flags, French submit button, an admin notification to the form's recipient with `{all_fields}`, default confirmation) and created with the Gravity Forms CLI; `content/forms.json` records form id → Gravity Forms id; the `data-faktory-form` wrapper left by the pages stage is swapped for the `gravityforms/form` block at compile time (same mechanism as plugins), the page is republished and must render `gform_wrapper_<id>`. E-mail delivery needs an SMTP configuration on the production host (the container has none). A form that already exists is never updated: to change its fields after the first run, delete it in Gravity Forms (or remove its entry from content/forms.json) and re-run. **SEO**: Yoast title, meta description and focus keyword of every sitemap page from `page.seo`, verified on the rendered `<title>`. **Articles**: one structured-output agent per `spec.blog.articles[i]` (tools: `Read` only; 500–1200 words, intro paragraph, ≥ 2 headings, inline `<strong>/<em>/<a>` only, no invented facts), saved to `content/articles/<slug>.json` — the editing surface: delete a file to regenerate that article, edit it and re-run to republish — then serialized to core Gutenberg blocks and published with category, excerpt, placeholder featured image and Yoast meta. The posts page must link every article.
 
+### QA
+`qa` runs after `content`. Faktory opens every sitemap page and every article in Playwright Chromium and records, per URL, the HTTP status, console errors and uncaught exceptions, failed same-origin requests, broken internal links, broken images and missing `alt`, GenerateBlocks classes without CSS, the `h1` count and horizontal overflow at 390 px, then screenshots desktop (1440) and mobile (390), full page plus viewport tiles. Each page that has a `pages/<slug>.gb.json` is then reviewed by one agent (tools `Read`, `Write` on `pages/`, `gb_build`) that reads the screenshots and may rewrite the tree; Faktory validates it, republishes it (placements applied, render contract checked), re-checks it and resumes the agent for a second round — 2 fix rounds at most. An invalid rewritten tree is restored and reported as a rejected fix. The stage never fails on remaining issues: it writes `qa/QA-REPORT.md` and `qa/report.json` and `export` runs anyway; it fails only on a non-200 URL, a missing browser, an agent error or the budget. A page whose tree is unchanged since the last report is not reviewed again, whatever its verdict — the previous verdict and issues are carried forward at $0.
+
+### Export
+`export` is deterministic ($0) and rewrites `dist/` every run: `db.sql` is `wp search-replace http://localhost:<port> https://SITE_URL_PLACEHOLDER --all-tables-with-prefix --export` plus a pass on the JSON-escaped form Yoast stores, verified to contain no local URL; `wp-content.tar.gz` holds plugins, themes (without the bundled `twenty*`), uploads and languages, verified to contain the parent and child themes, GenerateBlocks and every custom plugin; `docker-compose.prod.yml` + `.env.example` describe the production stack (no `WP_DEBUG`); `README.md` (French) is the restore runbook — compose up, `wp db import`, both `search-replace` forms to the real URL, Yoast reindex, rewrite flush, admin password, then SMTP, licence keys and WP Umbrella; `MANIFEST.json` records versions, pages, custom plugins, forms, articles, the QA summary, the cumulated cost and file sizes. `faktory export <slug>` is an alias of `run --only export`. The integration test restores `dist/` into a fresh stack from the exported compose file.
+
 ### Cost
 `maxCostUsd` in `faktory.config.json` (default 40) caps the cumulated cost of a site; `run --max-cost <usd>` overrides it for one invocation. The SDK also receives the remaining budget as `maxBudgetUsd`. Measured on the boulangerie brief: spec ≈ $0.52 (+ ≈$0.31 for a re-sync triggered by editing `SITE-SPEC.md`), design ≈ $0.90–$1.41 per attempt, provision ≈ $0 (no LLM calls); cumulative cost through a completed provision was $4.34 (including ≈$2.3 spent on two earlier failed design attempts before the design stage was fixed to compile the preview itself). The `pages` stage cost $4.82 for the 5 generated pages (accueil, nos-produits, commandes-evenements, la-maison, contact; blog skipped), ≈$0.96 per page with 0 retries; cumulative cost after `pages` was $9.17. That $4.82 / ≈$0.96-per-page run was measured while the `gb_build`/`gb_preview` MCP tools were unavailable to the agent (it wrote the tree blind, without self-checking it); with the agent's `gb_build` self-check active, measured pages cost ≈ $1.17 per page (2 pages, $2.35). The phase 4 re-run of the same 5 pages (trees deleted, wrapper convention, `gb_build` self-check active) cost **$6.16, ≈ $1.23 per page, 0 retries**.
 
@@ -91,10 +104,14 @@ The `plugins` stage cost **≈ $1.44 for one feature** — measured on the boula
 
 The `content` stage cost **$2.06 for 5 articles** (≈ $0.41 per article, 0 retries; forms and SEO are $0) — measured on the boulangerie spec (2 Gravity Forms forms, Yoast meta on 6 pages, 5 Opus articles of 640–700 words with concurrency 3). Cumulative site cost after `content`: **$22.09** against a `maxCostUsd` of 40. A second run reuses the forms and the articles ($0).
 
+The `qa` stage cost **$6.04 for 5 reviewed pages** (≈ $1.21 per page, 1–2 fix rounds — 3 of the 5 pages needed a second round; checks and screenshots are $0). Cumulative site cost after `qa`: $28.13. Every reviewed page ended `needs_human` (0 `ok`), and reuse at the time only applied to a page whose previous verdict was `ok`, so a second `qa` run re-reviewed all 5 pages instead of reusing them ($2.41 more, 1 round each). Cumulative site cost after both `qa` runs: $30.54. That ok-only rule was replaced during this phase by hash-keyed reuse: a page is skipped whenever its `pages/<slug>.gb.json` tree hash is unchanged since the last report, whatever its verdict. A third `qa` run against the same, still-unchanged site cost **$0.00**, with all 5 reviewed pages reused.
+
 Every agent stage validates its output (zod + file checks) and, on failure, resumes the same session once with the validation errors before failing the stage.
 
+`export` is $0; measured bundle on boulangerie: db.sql 2.3 MB, wp-content.tar.gz 16 MB.
+
 ## Stages
-spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Phase 3 implements `pages`. Phase 4 implements `plugins`, phase 5 `content`. Only `qa` and `export` are still marked "skipped (not implemented)".
+spec ⏸ → design ⏸ → provision → plugins → pages → content → qa → export. Phase 2 implements `spec`, `design` and the spec/token-driven part of `provision` (identity, placeholder pages, primary menu, GeneratePress settings, GP Premium footer element). The header is GeneratePress' native header themed by the tokens. Phase 3 implements `pages`. Phase 4 implements `plugins`, phase 5 `content`. Phase 6a implements `qa`, phase 6b `export`: every stage of the pipeline is implemented.
 
 ## Tests
 ```bash
