@@ -13,6 +13,7 @@ import { TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../tools/server.js";
 export const deps = { runAgent };
 export const PAGES_MAX_TURNS = 30;
 export const PAGES_TOOLS = ["Read", "Write", TOOL_GB_BUILD, TOOL_GB_PREVIEW];
+export const PAGES_WRITE_ROOTS = ["pages"];
 
 const NA = "[à confirmer]";
 
@@ -82,6 +83,7 @@ export async function generatePageTree(
       prompt: pagesUserPrompt(spec, page, opts),
       allowedTools: PAGES_TOOLS,
       maxTurns: PAGES_MAX_TURNS,
+      writeRoots: PAGES_WRITE_ROOTS,
     }, () => readPageTree(ctx, page));
     return { tree: r.value, costUsd: r.costUsd, attempts: r.attempts };
   } catch (err) {

@@ -8,7 +8,7 @@ import { loadContext } from "../../src/pipeline.js";
 import { pageTreePath } from "../../src/artifacts.js";
 import { parseSiteSpec, type Page } from "../../src/schemas/site-spec.js";
 import { featureMarker, formMarker, FORM_WRAPPER_ATTR } from "../../src/schemas/page-tree.js";
-import { pagesUserPrompt, readPageTree, generatePageTree, deps, PAGES_TOOLS, PAGES_MAX_TURNS } from "../../src/pages/generate.js";
+import { pagesUserPrompt, readPageTree, generatePageTree, deps, PAGES_TOOLS, PAGES_MAX_TURNS, PAGES_WRITE_ROOTS } from "../../src/pages/generate.js";
 import { TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../../src/tools/server.js";
 
 const spec = parseSiteSpec(JSON.parse(readFileSync("fixtures/specs/boulangerie.site-spec.json", "utf8")));
@@ -86,6 +86,8 @@ describe("generatePageTree", () => {
     expect(call.stage).toBe("pages");
     expect(call.allowedTools).toEqual(PAGES_TOOLS);
     expect(PAGES_TOOLS).toEqual(["Read", "Write", TOOL_GB_BUILD, TOOL_GB_PREVIEW]);
+    expect(call.writeRoots).toEqual(["pages"]);
+    expect(PAGES_WRITE_ROOTS).toEqual(["pages"]);
     expect(call.maxTurns).toBe(PAGES_MAX_TURNS);
     expect(call.outputFormat).toBeUndefined();
     expect(call.systemPrompt).toContain("Tu es l'intégrateur GenerateBlocks");

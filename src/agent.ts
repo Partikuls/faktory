@@ -12,18 +12,20 @@ export function isInside(base: string, target: string): boolean {
 
 const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 
-export function writeGuard(siteDir: string): HookCallback {
+/** Deny Write/Edit outside `roots` (relative to `siteDir`; default: the whole site dir). */
+export function writeGuard(siteDir: string, roots?: string[]): HookCallback {
+  const allowed = (roots?.length ? roots : [""]).map((r) => resolve(siteDir, r));
   return async (input) => {
     const pre = input as PreToolUseHookInput;
     if (pre.hook_event_name !== "PreToolUse" || !WRITE_TOOLS.has(pre.tool_name)) return {};
     const fp = (pre.tool_input as { file_path?: string; notebook_path?: string })?.file_path
       ?? (pre.tool_input as { notebook_path?: string })?.notebook_path;
-    if (fp && isInside(siteDir, resolve(siteDir, fp))) return {};
+    if (fp && allowed.some((base) => isInside(base, resolve(siteDir, fp)))) return {};
     return {
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
         permissionDecision: "deny",
-        permissionDecisionReason: `Writes are restricted to ${siteDir}`,
+        permissionDecisionReason: `Writes are restricted to ${allowed.join(", ")}`,
       },
     };
   };
@@ -68,6 +70,8 @@ export type AgentOptions = {
   maxTurns?: number; model?: string;
   /** SDK session id of a previous run to continue (used by `runValidated` for the one retry). */
   resume?: string;
+  /** Site-relative directories the agent may write to; default: the whole site dir. */
+  writeRoots?: string[];
 };
 export type AgentRunner = (ctx: SiteContext, opts: AgentOptions) => Promise<AgentRun>;
 
@@ -84,7 +88,7 @@ export function agentQueryOptions(ctx: SiteContext, opts: AgentOptions, server: 
     mcpServers: { [FAKTORY_SERVER]: server },
     // only our in-process server: without this the CLI also loads the user's claude.ai connectors (~180 tools) into every agent
     strictMcpConfig: true,
-    hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir)] }] },
+    hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir, opts.writeRoots)] }] },
     maxTurns: opts.maxTurns ?? 60,
     maxBudgetUsd: remainingBudget(ctx),
     outputFormat: opts.outputFormat,

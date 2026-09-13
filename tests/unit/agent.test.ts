@@ -38,6 +38,23 @@ describe("writeGuard", () => {
     const r = (await call("Write", "../x")) as { hookSpecificOutput?: { permissionDecision?: string } };
     expect(r.hookSpecificOutput?.permissionDecision).toBe("deny");
   });
+
+  describe("with writeRoots", () => {
+    const scoped = writeGuard("/site", ["pages", "wp-content/plugins/faktory-x"]);
+    const callScoped = (file_path: string) =>
+      scoped({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: { file_path }, session_id: "s", transcript_path: "", cwd: "/site" } as never, "t1", { signal: new AbortController().signal });
+    it("allows writes under any root, relative or absolute", async () => {
+      expect(await callScoped("pages/x.gb.json")).toEqual({});
+      expect(await callScoped("/site/wp-content/plugins/faktory-x/includes/a.php")).toEqual({});
+    });
+    it("denies writes elsewhere in the site dir and names the roots", async () => {
+      const r = (await callScoped("/site/design-system.md")) as { hookSpecificOutput?: { permissionDecision?: string; permissionDecisionReason?: string } };
+      expect(r.hookSpecificOutput?.permissionDecision).toBe("deny");
+      expect(r.hookSpecificOutput?.permissionDecisionReason).toBe("Writes are restricted to /site/pages, /site/wp-content/plugins/faktory-x");
+      const sibling = (await callScoped("/site/wp-content/plugins/faktory-xy/a.php")) as { hookSpecificOutput?: { permissionDecision?: string } };
+      expect(sibling.hookSpecificOutput?.permissionDecision).toBe("deny");
+    });
+  });
 });
 
 describe("resolveModel / pluginPath", () => {
@@ -100,6 +117,14 @@ describe("agentQueryOptions", () => {
   });
   it("passes resume through", () => {
     expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], resume: "s1" }, server).resume).toBe("s1");
+  });
+  it("builds the write guard from opts.writeRoots", async () => {
+    const opts = agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], writeRoots: ["pages"] }, server);
+    const guard = opts.hooks!.PreToolUse![0].hooks[0];
+    const call = (file_path: string) =>
+      guard({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: { file_path }, session_id: "s", transcript_path: "", cwd: ctx.siteDir } as never, "t1", { signal: new AbortController().signal });
+    expect(await call(`${ctx.siteDir}/design-system.md`)).toMatchObject({ hookSpecificOutput: { permissionDecision: "deny" } });
+    expect(await call(`${ctx.siteDir}/pages/a.json`)).toEqual({});
   });
 });
 
