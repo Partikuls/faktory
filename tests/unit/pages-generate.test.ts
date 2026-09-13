@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readFileSync, mkdtempSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadConfig } from "../../src/config.js";
 import { initSite } from "../../src/workspace.js";
 import { loadContext } from "../../src/pipeline.js";
 import { pageTreePath } from "../../src/artifacts.js";
-import { parseSiteSpec } from "../../src/schemas/site-spec.js";
+import { parseSiteSpec, type Page } from "../../src/schemas/site-spec.js";
 import { featureMarker, formMarker, FORM_WRAPPER_ATTR } from "../../src/schemas/page-tree.js";
 import { pagesUserPrompt, readPageTree, generatePageTree, deps, PAGES_TOOLS, PAGES_MAX_TURNS } from "../../src/pages/generate.js";
 import { TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../../src/tools/server.js";
@@ -34,12 +34,26 @@ describe("pagesUserPrompt", () => {
     expect(p).toContain("`pages/accueil.gb.json`");
     expect(p).not.toContain("et `pages/accueil.gb.json`");
   });
+  it("mentions the marker obligatoire and its wrapper attribute for a custom-query section", () => {
+    const p = pagesUserPrompt(spec, home);
+    expect(p).toMatch(/marqueur obligatoire.*catalogue_produits/);
+    expect(p).toContain('data-faktory-feature="catalogue_produits"');
+  });
   it("points non-home pages at the home tree and lists the forms", () => {
     const p = pagesUserPrompt(spec, contact, { homeSlug: "accueil" });
     expect(p).toContain("et `pages/accueil.gb.json`");
     expect(p).toContain("`pages/contact.gb.json`");
     expect(p).toContain(formMarker("contact"));
     expect(p).toMatch(/Nom\*|nom\*/);
+    expect(p).toMatch(/marqueur obligatoire.*contact/);
+    expect(p).toContain('data-faktory-form="contact"');
+  });
+  it("only calls a marker obligatoire when requiredMarkers actually requires it", () => {
+    const homeCopy: Page = JSON.parse(JSON.stringify(home));
+    const customSection = homeCopy.sections.find((s) => s.type === "custom-query")!;
+    customSection.type = "text"; // s.feature is still set, but this section no longer requires a marker
+    const p = pagesUserPrompt(spec, homeCopy);
+    expect(p).not.toMatch(/marqueur obligatoire/);
   });
 });
 
@@ -99,5 +113,16 @@ describe("generatePageTree", () => {
     const c = await ctx();
     vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", transcript: "", costUsd: 0.5, sessionId: "p-3", numTurns: 2 });
     await expect(generatePageTree(c, spec, home)).rejects.toThrow(/pages: output still invalid after one retry — pages\/accueil.gb.json was not written/);
+  });
+  it("deletes pages/<slug>.gb.json and says so when the retry also fails validation on an invalid (not just missing) tree", async () => {
+    const c = await ctx();
+    const invalidTree = [{ type: "element", tagName: "section", innerBlocks: [{ type: "text", tagName: "h2", content: "no h1 here" }] }];
+    vi.spyOn(deps, "runAgent").mockImplementation(async (cc) => {
+      mkdirSync(join(cc.siteDir, "pages"), { recursive: true });
+      writeFileSync(pageTreePath(cc, "accueil"), JSON.stringify(invalidTree));
+      return { text: "", transcript: "", costUsd: 0.4, sessionId: "p-4", numTurns: 3 };
+    });
+    await expect(generatePageTree(c, spec, home)).rejects.toThrow(/pages\/accueil\.gb\.json deleted, the next run regenerates it/);
+    expect(existsSync(pageTreePath(c, "accueil"))).toBe(false);
   });
 });

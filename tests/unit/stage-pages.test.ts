@@ -115,4 +115,16 @@ describe("pages stage", () => {
     expect(s.gen).not.toHaveBeenCalled();
     expect(s.publish).toHaveBeenCalledWith(c, 10, "<!-- accueil -->");
   });
+  it("logs every rejected page before rethrowing the budget error", async () => {
+    const c = await ctx();
+    mkdirSync(join(c.siteDir, "pages"), { recursive: true });
+    copyFileSync("fixtures/pages/accueil.gb.json", pageTreePath(c, "accueil"));
+    c.state = { ...c.state, costUsd: 40 };
+    spies();
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(pagesStage.run(c)).rejects.toThrow(/Cost budget reached/);
+    // nos-produits, commandes-evenements, la-maison, contact all reject with "Cost budget reached"
+    expect(errSpy).toHaveBeenCalledTimes(4);
+    for (const call of errSpy.mock.calls) expect(call[0]).toContain("Cost budget reached");
+  });
 });

@@ -21,6 +21,9 @@ export const pagesStage: Stage = {
   name: "pages",
   async run(ctx) {
     const spec = readJsonArtifact(ctx, "siteSpecJson", parseSiteSpec);
+    // Parsed value discarded: this only fails fast, with a clear artifact error, when design-tokens.json
+    // is missing or invalid — the pages themselves read the tokens directly (via the design-system.md /
+    // design/preview.gb.json reads in the prompt), not through this return value.
     readJsonArtifact(ctx, "designTokensJson", parseDesignTokens);
     if (!hasArtifact(ctx, "designSystemMd")) throw new Error(`design-system.md not found in ${ctx.siteDir} — run the design stage first (faktory run ${ctx.slug} --only design)`);
 
@@ -50,13 +53,6 @@ export const pagesStage: Stage = {
     const rest = pages.filter((p) => p.slug !== home.slug);
     const results = await mapLimit(rest, PAGES_CONCURRENCY, build);
 
-    // Budget exhaustion is a global condition, not a per-page failure: surface it as-is.
-    for (const r of results) {
-      if (r.status === "rejected" && r.reason instanceof Error && r.reason.message.includes("Cost budget reached")) {
-        throw r.reason;
-      }
-    }
-
     const failed: string[] = [];
     results.forEach((r, i) => {
       if (r.status === "rejected") {
@@ -64,6 +60,15 @@ export const pagesStage: Stage = {
         console.error(`  ✖ ${rest[i].slug}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
       }
     });
+
+    // Budget exhaustion is a global condition, not a per-page failure: surface it as-is (every
+    // rejection was already logged above).
+    for (const r of results) {
+      if (r.status === "rejected" && r.reason instanceof Error && r.reason.message.includes("Cost budget reached")) {
+        throw r.reason;
+      }
+    }
+
     if (failed.length) {
       throw new Error(`${failed.length} page(s) failed: ${failed.join(", ")} — fix or delete pages/<slug>.gb.json and re-run: faktory run ${ctx.slug} --only pages`);
     }

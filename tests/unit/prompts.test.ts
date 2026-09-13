@@ -27,5 +27,7 @@ describe("prompts", () => {
     expect(p).toContain("pages/<slug>.gb.json");
     expect(p).toContain("faktory:feature:<id>");
     expect(p).toContain("faktory:form:<id>");
+    expect(p).toContain("data-faktory-feature");
+    expect(p).toContain("data-faktory-form");
   });
 });

@@ -1,9 +1,12 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import type { SiteContext } from "../docker.js";
 import { runAgent, runValidated } from "../agent.js";
 import { pageTreePath, pageTreeRel } from "../artifacts.js";
 import { loadPrompt } from "../prompts.js";
-import { featureMarker, formMarker, parsePageTree, assertPageTree, type PageTree } from "../schemas/page-tree.js";
+import {
+  featureMarker, formMarker, parsePageTree, assertPageTree, requiredMarkers,
+  FEATURE_WRAPPER_ATTR, FORM_WRAPPER_ATTR, type PageTree,
+} from "../schemas/page-tree.js";
 import type { Page, SiteSpec } from "../schemas/site-spec.js";
 import { TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../tools/server.js";
 
@@ -17,6 +20,7 @@ export function pagesUserPrompt(spec: SiteSpec, page: Page, opts: { homeSlug?: s
   const id = spec.identity;
   const features = spec.features.filter((f) => page.sections.some((s) => s.feature === f.id));
   const forms = spec.forms.filter((f) => page.sections.some((s) => s.form === f.id));
+  const required = new Set(requiredMarkers(page));
   const lines: string[] = [
     `# Page \`${page.slug}\` — ${page.title} [${page.kind}]`,
     `Objectif : ${page.goal}`,
@@ -25,8 +29,12 @@ export function pagesUserPrompt(spec: SiteSpec, page: Page, opts: { homeSlug?: s
     "## Sections (dans cet ordre)",
     ...page.sections.map((s, i) => {
       const extra = [
-        s.feature ? `feature \`${s.feature}\` → marqueur obligatoire \`${featureMarker(s.feature)}\`` : "",
-        s.form ? `formulaire \`${s.form}\` → marqueur obligatoire \`${formMarker(s.form)}\`` : "",
+        s.type === "custom-query" && s.feature && required.has(featureMarker(s.feature))
+          ? `feature \`${s.feature}\` → marqueur obligatoire \`${featureMarker(s.feature)}\` → enveloppe \`${FEATURE_WRAPPER_ATTR}="${s.feature}"\` contenant les cartes d'exemple puis le marqueur`
+          : "",
+        (s.type === "form" || s.type === "contact") && s.form && required.has(formMarker(s.form))
+          ? `formulaire \`${s.form}\` → marqueur obligatoire \`${formMarker(s.form)}\` → enveloppe \`${FORM_WRAPPER_ATTR}="${s.form}"\` contenant le marqueur puis la carte « bientôt disponible »`
+          : "",
       ].filter(Boolean).join(" ; ");
       return `${i + 1}. **${s.type}** « ${s.heading} » — ${s.summary}${extra ? ` — ${extra}` : ""}`;
     }),
@@ -67,12 +75,24 @@ export function readPageTree(ctx: SiteContext, page: Page): PageTree {
 export async function generatePageTree(
   ctx: SiteContext, spec: SiteSpec, page: Page, opts: { homeSlug?: string } = {},
 ): Promise<{ tree: PageTree; costUsd: number; attempts: 1 | 2 }> {
-  const r = await runValidated(deps.runAgent, ctx, {
-    stage: "pages",
-    systemPrompt: loadPrompt("pages"),
-    prompt: pagesUserPrompt(spec, page, opts),
-    allowedTools: PAGES_TOOLS,
-    maxTurns: PAGES_MAX_TURNS,
-  }, () => readPageTree(ctx, page));
-  return { tree: r.value, costUsd: r.costUsd, attempts: r.attempts };
+  try {
+    const r = await runValidated(deps.runAgent, ctx, {
+      stage: "pages",
+      systemPrompt: loadPrompt("pages"),
+      prompt: pagesUserPrompt(spec, page, opts),
+      allowedTools: PAGES_TOOLS,
+      maxTurns: PAGES_MAX_TURNS,
+    }, () => readPageTree(ctx, page));
+    return { tree: r.value, costUsd: r.costUsd, attempts: r.attempts };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // Only when the retry's own output is still invalid (not e.g. an agent/budget failure):
+    // delete the poisoned tree so the next `run --only pages` regenerates it instead of reusing it.
+    if (message.includes("output still invalid after one retry")) {
+      const abs = pageTreePath(ctx, page.slug);
+      if (existsSync(abs)) rmSync(abs);
+      throw new Error(`${message} — ${pageTreeRel(page.slug)} deleted, the next run regenerates it`);
+    }
+    throw err;
+  }
 }
