@@ -105,7 +105,9 @@ export async function reviewPage(
       writeRoots: QA_WRITE_ROOTS,
       resume: opts.resume,
     }, validate);
-    return { verdict: r.value.verdict, treeChanged: r.value.changed, tree: r.value.tree, costUsd: round4(ctx.state.costUsd - startCost), attempts: r.attempts, sessionId: r.run.sessionId };
+    // `r.costUsd` is `runValidated`'s own sum of this call's attempt(s) — safe under concurrent `reviewPage` calls
+    // sharing `ctx.state`, unlike a `ctx.state.costUsd` delta which would also pick up other pages' spend.
+    return { verdict: r.value.verdict, treeChanged: r.value.changed, tree: r.value.tree, costUsd: r.costUsd, attempts: r.attempts, sessionId: r.run.sessionId };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (!message.includes("output still invalid after one retry")) throw err;
@@ -113,6 +115,8 @@ export async function reviewPage(
     console.warn(`  ⚠ ${rel}: fix rejected, previous tree restored — ${message.split("\n")[0].slice(0, 200)}`);
     return {
       verdict: { verdict: "needs_human", summary: "Correction refusée par Faktory : arbre restauré.", issues: [{ severity: "major", where: rel, what: `correction refusée : ${message}`, action: "left" }] },
+      // `runValidated` threw without returning a cost here, so fall back to the `ctx.state` delta — approximate
+      // under concurrent `reviewPage` calls (it can include other pages' spend in that window), unlike the success path above.
       treeChanged: false, tree: originalTree, costUsd: round4(ctx.state.costUsd - startCost), attempts: 2, rejected: message,
     };
   }
