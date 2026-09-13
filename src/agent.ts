@@ -83,6 +83,8 @@ export async function runAgent(
       skills: pluginSkillNames(),
       plugins: [{ type: "local", path: pluginPath(ctx.config) }],
       mcpServers: { [FAKTORY_SERVER]: server },
+      // only our in-process server: without this the CLI also loads the user's claude.ai connectors (~180 tools) into every agent
+      strictMcpConfig: true,
       hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir)] }] },
       maxTurns: opts.maxTurns ?? 60,
       maxBudgetUsd: remainingBudget(ctx),

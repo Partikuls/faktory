@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { loadConfig } from "../../src/config.js";
 import { createState } from "../../src/state.js";
 import type { SiteContext } from "../../src/docker.js";
 import { deps } from "../../src/wp.js";
 import { gbScript, deps as gbDeps } from "../../src/gb.js";
-import { wpToolHandler, createFaktoryServer, TOOL_WP, resolveSitePath, gbBuildToolHandler, gbPreviewToolHandler, TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../../src/tools/server.js";
+import { wpToolHandler, createFaktoryServer, FAKTORY_SERVER, TOOL_WP, resolveSitePath, gbBuildToolHandler, gbPreviewToolHandler, TOOL_GB_BUILD, TOOL_GB_PREVIEW } from "../../src/tools/server.js";
 
 const ctx: SiteContext = { config: loadConfig("/tmp/fk"), slug: "demo", siteDir: "/tmp/fk/sites/demo", state: createState("demo", 8100, "pw") };
 
@@ -128,5 +130,21 @@ describe("gb tools", () => {
     const html = readFileSync(join(c.siteDir, "preview.html"), "utf8");
     expect(html).toContain("--accent:#123456");
     expect(html).toContain("family=Fraunces:wght@400;700");
+  });
+});
+
+describe("createFaktoryServer over MCP", () => {
+  it("lists wp, gb_build and gb_preview through tools/list (regression: z.record broke the schema conversion)", async () => {
+    const server = createFaktoryServer(ctx) as unknown as { name: string; instance: { connect(t: unknown): Promise<void> } };
+    expect(server.name).toBe(FAKTORY_SERVER);
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await server.instance.connect(a);
+    const client = new Client({ name: "test", version: "0" });
+    await client.connect(b);
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual(["gb_build", "gb_preview", "wp"]);
+    const gb = tools.find((t) => t.name === "gb_build")!;
+    expect(JSON.stringify(gb.inputSchema)).toContain("\"tree\"");
+    await client.close();
   });
 });

@@ -60,14 +60,15 @@ export function gbBuildToolHandler(ctx: SiteContext) {
 }
 
 export function gbPreviewToolHandler(ctx: SiteContext) {
-  return async (input: { markup: string; out: string } & PreviewOptions): Promise<{ content: { type: "text"; text: string }[]; isError?: true }> => {
+  return async (input: { markup: string; out: string; palette?: Record<string, unknown> } & Omit<PreviewOptions, "palette">): Promise<{ content: { type: "text"; text: string }[]; isError?: true }> => {
     try {
       const src = resolveSitePath(ctx, input.markup);
       const dst = resolveSitePath(ctx, input.out);
       if (!existsSync(src)) return fail(`Markup file not found: ${input.markup} — run gb_build first`);
       mkdirSync(dirname(dst), { recursive: true });
       const { markup: _m, out: _o, ...opts } = input;
-      await gbPreview(ctx.config, src, dst, opts);
+      const palette = input.palette ? Object.fromEntries(Object.entries(input.palette).filter(([, v]) => typeof v === "string")) as Record<string, string> : undefined;
+      await gbPreview(ctx.config, src, dst, { ...opts, palette });
       return ok(`Wrote ${input.out}. Read it to inspect the compiled HTML/CSS, or open it in a browser.`);
     } catch (err) {
       return fail(err instanceof Error ? err.message : String(err));
@@ -94,11 +95,15 @@ export function createFaktoryServer(ctx: SiteContext) {
     { args: z.array(z.string()).min(1).describe("wp-cli arguments without the leading 'wp'"), stdin: z.string().optional().describe("Text piped to the command's stdin") },
     wpToolHandler(ctx),
   );
+  // Never use z.record(...) in a tool input shape: it breaks the Agent SDK's zod→JSON-schema
+  // conversion (zod 4.6.2) and tools/list fails for the whole server (regression test:
+  // "createFaktoryServer over MCP" in tests/unit/tools-server.test.ts). Use z.looseObject({})
+  // for open-ended key/value shapes instead, and coerce/filter in the handler if needed.
   const gbBuildTool = tool(
     "gb_build",
     "Compile a GenerateBlocks tree (gb_build.py JSON: a node or an array of section nodes with type/tagName/styles/innerBlocks/content/htmlAttributes) into WordPress block markup and write it to `out` (path relative to the site directory).",
     {
-      tree: z.union([z.record(z.string(), z.unknown()), z.array(z.record(z.string(), z.unknown()))]).describe("gb_build.py tree"),
+      tree: z.union([z.looseObject({}), z.array(z.looseObject({}))]).describe("gb_build.py tree"),
       out: z.string().describe("Output markup path relative to the site dir, e.g. design/preview.gb.html"),
     },
     gbBuildToolHandler(ctx),
@@ -109,7 +114,7 @@ export function createFaktoryServer(ctx: SiteContext) {
     {
       markup: z.string().describe("Markup path relative to the site dir (output of gb_build)"),
       out: z.string().describe("Preview HTML path relative to the site dir, e.g. preview.html"),
-      palette: z.record(z.string(), z.string()).optional(),
+      palette: z.looseObject({}).optional().describe("GP palette slug → hex, e.g. { \"base\": \"#faf6ef\" }"),
       fonts: z.array(z.object({ family: z.string(), variants: z.string().optional() })).optional(),
       headingFont: z.string().optional(),
       bodyFont: z.string().optional(),
