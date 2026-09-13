@@ -22,4 +22,10 @@ describe("prompts", () => {
     else expect(d).toBe("");
     expect(designSystemPrompt(config).startsWith(loadPrompt("design"))).toBe(true);
   });
+  it("loads the pages prompt", () => {
+    const p = loadPrompt("pages");
+    expect(p).toContain("pages/<slug>.gb.json");
+    expect(p).toContain("faktory:feature:<id>");
+    expect(p).toContain("faktory:form:<id>");
+  });
 });
