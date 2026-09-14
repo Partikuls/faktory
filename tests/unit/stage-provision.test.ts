@@ -74,12 +74,13 @@ describe("provision stage orchestration", () => {
     expect(msg).toContain("fr_FR packs: warn (language theme install generatepress fr_FR: Error: offline)");
     expect(msg).toContain("blog elements skipped: no blog page");
   });
-  it("creates pages and menus without tokens, and skips the footer", async () => {
+  it("creates pages and menus without tokens, and skips the footer, child theme and blog", async () => {
     const m = mockInfra();
     const msg = await provisionStage.run(await ctx({ spec: true }));
     expect(m.pages).toHaveBeenCalled(); expect(m.menus).toHaveBeenCalled();
     expect(m.tokens).not.toHaveBeenCalled(); expect(m.footer).not.toHaveBeenCalled();
-    expect(msg).toMatch(/6 pages/); expect(msg).toMatch(/no design-tokens.json/);
+    expect(m.childTheme).not.toHaveBeenCalled(); expect(m.blog).not.toHaveBeenCalled();
+    expect(msg).toMatch(/6 pages/); expect(msg).toMatch(/no design-tokens\.json: tokens\/child theme\/footer\/blog skipped/);
   });
   it("skips the footer when gp-premium is missing, even with spec and tokens", async () => {
     const m = mockInfra();

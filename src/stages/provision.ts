@@ -45,7 +45,7 @@ export const provisionStage: Stage = {
       await deps.installChildTheme(ctx, tokens);
       parts.push("child theme styles");
     } else {
-      parts.push("no design-tokens.json: tokens/footer skipped");
+      parts.push("no design-tokens.json: tokens/child theme/footer/blog skipped");
     }
     if (spec && tokens) {
       if (stack.missingVendor.includes("gp-premium")) {
