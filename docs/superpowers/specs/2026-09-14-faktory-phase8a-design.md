@@ -142,3 +142,85 @@ Chaque nouvelle fonction est ajoutée à `deps` pour les tests de l'étape. Le r
 2. Réparation : `faktory run boulangerie-e2e --only provision` sur le site hérité, puis contrôle navigateur : mode flexbox, polices des titres et du corps, couleurs de palette sur en-tête, menu, fonds et liens.
 3. Run neuf : `boulangerie`, `provision → export`, lancé détaché (nohup + log).
 4. Compte rendu dans une section « Écarts et mesures » ajoutée à ce document : défauts QA de charte (attendu : aucun sur en-tête, menu, fonds, titres, blog, formulaires) ; `/actualites/` en grille avec un seul `h1` ; aucune couleur par défaut de GeneratePress ou Gravity Forms sur les captures ; coût et durée comparés à la phase 7.
+
+## Écarts et mesures
+
+Exécution du plan `docs/superpowers/plans/2026-09-14-faktory-phase8a-theme-blog.md` le 2026-09-14, branche `faktory/phase8a` : 11 tâches revues une à une, une revue finale de la branche et une vague de corrections, puis la réparation de `boulangerie-e2e` et un run neuf.
+
+### Écarts au design
+
+1. **Paquets de langue.** `installLanguagePacks` s'exécute après `installStack`, et non dans `installCore` : le thème et les extensions n'existent pas encore quand `installCore` tourne.
+2. **Forme des manques.** `Gap = { label; paths }` : les manques qui partagent un libellé (les lignes d'horaires) sont regroupés.
+3. **`onApprove` sans `site-spec.json`.** Il ne lève pas d'erreur et n'affiche aucun avertissement : les tests du pipeline approuvent une étape `spec` factice qui n'a rien écrit.
+4. **Thème enfant.**
+   - Écrit dès que les tokens existent, même sans Gravity Forms : le filtre est alors inerte.
+   - Il porte aussi la largeur de lecture des articles (760 px), que GeneratePress ne sait pas régler.
+   - Écriture par le conteneur `wpcli` dans `functions.php.tmp` (chemin passé en argument positionnel de `sh`), vérification `php -l`, puis `mv`. Un fichier invalide est supprimé et le `functions.php` en place reste intact.
+   - La CSS en ligne est rattachée à `generate-child`, la feuille enfant que GeneratePress charge lui-même. Les deux `wp_enqueue_style` du scaffold sont retirés.
+5. **Police des formulaires.** La variable est `--gf-font-family-base`, sous le sélecteur `body .gform-theme--framework` : Gravity Forms 3.1 ne lit pas `--gf-font-family`, et le sélecteur l'emporte sur sa règle quel que soit l'ordre de chargement.
+6. **Orbital.** Le thème est choisi par la clé `theme` du filtre, et non par l'option `rg_gforms_default_theme`. Le test d'intégration vérifie la sortie du filtre, car les formulaires n'existent qu'après l'étape `content`.
+7. **Noms de police.** Ils n'étaient pas validés, contrairement à ce que supposait A4. Le schéma les limite désormais à `^[A-Za-z0-9][A-Za-z0-9 ]*$`, et le thème enfant retire aussi tout autre caractère avant de construire la CSS.
+8. **`isPlaceholder`.** Déplacé dans `src/spec-gaps.ts`, et importé directement par `footer.ts` et `blog.ts`.
+9. **Blocs bruts.** `query-no-results` et `query-page-numbers` sont émis en blocs bruts, avec une CSS écrite à la main : `gb_build.py` est une copie synchronisée d'un skill et ne connaît pas ces blocs.
+10. **Archives de catégorie.** Le gabarit de boucle leur retire le titre de GeneratePress. Un bloc cœur `<!-- wp:query-title {"type":"archive","showPrefix":false,"level":1} /-->` précède donc la grille : il ne rend rien sur la page des articles, et donne son `h1` à une archive de catégorie.
+11. **Dynamic tags.**
+    - `{{featured_image key:alt|required:false}}` : GenerateBlocks traite chaque tag comme obligatoire, et un `alt` vide supprimait toute l'image.
+    - `term_list` reçoit `sep:, `.
+12. **Alignement.** Le hero du blog, la grille et le hero d'article reprennent le retrait de contenu de GeneratePress (40 px en desktop, 30 px en mobile) au lieu de leur propre marge. Mesuré avant correction : `h1` à 120 px et cartes à 184 px, pour 160 px de bord de contenu.
+13. **Formats français.** `installCore` règle `date_format` à `j F Y`, `time_format` à `G\hi` et `start_of_week` à `1` : l'installation en anglais précède l'activation de `fr_FR`, et les dates s'affichaient « septembre 13, 2026 ».
+14. **Réglages de formulaire.** `COMPONENT_COLORS` gagne les états focus : bordure `var(--accent)`, fond `var(--base-3)`, texte `var(--contrast)`.
+15. **Blog, divers.**
+    - L'introduction du hero est omise si `seo.metaDescription` contient le marqueur `[à confirmer]`.
+    - L'anneau de focus des cartes passe de `:focus-within` à `:has(a:focus-visible)`.
+16. **Contrôle QA.** La liste de chaînes non traduites gagne « Leave a comment » : GeneratePress 3.6.1 emploie les deux casses.
+17. **Non traité.**
+    - Après une resynchronisation au moment de `approve`, la section « Informations à compléter » de `SITE-SPEC.md` n'est pas régénérée. L'avertissement de la console, recalculé depuis le JSON, reste juste.
+    - La catégorie par défaut garde son nom anglais « Uncategorized », visible seulement si un article reste sans catégorie.
+    - L'image à la une d'un article n'est pas vérifiée par le test d'intégration (`wp post generate` ne crée pas de vignette) : elle l'est dans les contrôles navigateur ci-dessous.
+
+### Réparation de `boulangerie-e2e`
+
+`faktory run boulangerie-e2e --only provision` sur le site hérité de la phase 7, relancé après la vague de corrections : « already installed; installed: nothing new; fr_FR packs: ok; 6 pages + primary menu; tokens applied; child theme styles; footer element #16; blog elements #50 #52 #54 ».
+
+Contrôles navigateur (Playwright) sur `/`, `/la-maison/`, `/actualites/`, `/contact/` et un article :
+
+- **Polices et couleurs.** `h1` en Fraunces et corps en Figtree. Fond de page `rgb(250, 245, 236)` (= `base`), en-tête et menu `rgb(255, 253, 248)` (= `base-3`). Bouton de formulaire `rgb(74, 99, 67)` (= `accent`), champs en Figtree.
+- **`h1` et textes.** Un seul `h1` par page, aucune méta « by admin », aucune chaîne anglaise.
+- **Page blog.** 5 cartes. Le `h1` et les cartes sont alignés sur le bord de contenu : 160 px en desktop, 30 px en mobile.
+- **Article.** Un `h1`, et une image à la une dans le hero.
+- **Dates.** « 13 septembre 2026 ».
+
+### Run neuf `boulangerie-8a`
+
+`init` depuis `fixtures/briefs/boulangerie.md` sur le port 8102, puis les deux checkpoints approuvés sans édition, puis le run détaché, comme en phase 7.
+
+L'étape `spec` a relevé 11 informations à compléter, listées en tête de `SITE-SPEC.md` : Téléphone, Adresse, Horaires (7 valeurs), et 8 sections de page. `approve` a affiché l'avertissement et approuvé.
+
+| Étape | Coût | Durée | Phase 7 |
+|---|---|---|---|
+| spec | 0,39 $ | 1 min 05 s | 0,39 $ · 1 min 06 s |
+| design | 1,06 $ | 3 min 18 s | 1,15 $ · 3 min 35 s |
+| provision | 0,00 $ | 1 min 59 s | 0,00 $ · 1 min 17 s |
+| plugins | 1,50 $ | 4 min 03 s | 1,56 $ · 4 min 16 s |
+| pages | 5,62 $ | 8 min 33 s | 5,74 $ · 8 min 48 s |
+| content | 1,90 $ | 2 min 49 s | 1,93 $ · 3 min 04 s |
+| qa | 5,38 $ | 4 min 48 s | 5,92 $ · 6 min 31 s |
+| export | 0,00 $ | 11 s | 0,00 $ · 9 s |
+| **total** | **15,84 $** | **26 min 47 s** | **16,70 $ · 28 min 45 s** |
+
+La durée de `provision` croît de 42 s : paquets de langue, thème enfant (écriture et `php -l`), trois Elements du blog. Elle n'a pas été mesurée à froid en phase 7 (voir l'addendum de cette phase). Trois agents de revue QA ont rendu un verdict incohérent une fois et ont été relancés, comme en phase 7.
+
+Résultats QA :
+
+- **Contrôles automatiques.** 11 URL contrôlées, `h1` = 1 et « Textes non traduits » = 0 partout, y compris `/actualites/` et les 5 articles.
+- **Couleurs.** Aucune couleur par défaut de GeneratePress (`#efefef`, `#222222`, `#1e73be`) dans le HTML de `/`, `/actualites/`, `/contact/` et `/la-maison/`.
+- **Revue.** 5 pages relues : 17 défauts restants, tous `needs_human`, dont aucun sur l'en-tête, le menu, les fonds, les liens, la police des titres ou le blog.
+- **Défauts de charte restants.** Deux, mineurs, sur les formulaires Gravity Forms : un bouton « Envoyer » de moins de 48 px de haut (réglage `inputSize: md`), et la mention « (Nécessaire) » en rouge. Ils sont à reprendre avec la taille de champ `lg` et la couleur de la mention obligatoire.
+- **Autres défauts.** Tous viennent des manques du brief (horaires, téléphone, adresse, noms de l'équipe, lien d'itinéraire) ou des images de remplacement (lot 8b, B2).
+
+Contrôles navigateur sur `http://localhost:8102` :
+
+- **Polices.** Fraunces pour les titres et Figtree pour le corps.
+- **Couleurs.** Fond `rgb(251, 246, 236)` (= `base` `#FBF6EC`), en-tête et menu `rgb(255, 253, 248)` (= `base-3`), bouton de formulaire `rgb(74, 101, 72)` (= `accent` `#4A6548`), champs en Figtree.
+- **Page blog.** 5 cartes alignées sur le logo.
+- **Article.** Un `h1`, et une image à la une dans le hero.
