@@ -187,7 +187,7 @@ Every stage can run on its own with `--only`. Most stages reuse what already exi
 | Resume after a failure | Fix the cause, then `run my-site`. It restarts at the failed stage. |
 | Restart from a given stage | `run my-site --from pages` |
 
-Regenerating the spec or the design (`run --only spec`, `--from design`…) asks for confirmation, because it overwrites your edits, then sets the later stages back to pending. Page titles changed in `SITE-SPEC.md` are applied to WordPress by the next `provision`, `pages`, `content` or `qa` run.
+Regenerating the spec or the design (`run --only spec`, `--from design`…) asks for confirmation, because it overwrites your edits, then sets the later stages back to pending. Page titles changed in `SITE-SPEC.md` are applied to WordPress by the next `provision`, `plugins`, `pages`, `content` or `qa` run.
 
 ## Troubleshooting
 
