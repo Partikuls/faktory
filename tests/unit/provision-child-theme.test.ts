@@ -35,14 +35,14 @@ describe("childThemeFunctions", () => {
     expect(php).toContain(`return json_decode( '${JSON.stringify(gfStyles(tokens))}', true );`);
   });
   it("sets the GF font and the single post reading width in inline css", () => {
-    expect(php).toContain(`.gform-theme--framework{--gf-font-family:"${tokens.fonts.body.family}", sans-serif;}`);
+    expect(php).toContain(`body .gform-theme--framework{--gf-font-family-base:"${tokens.fonts.body.family}", sans-serif;}`);
     expect(php).toContain(".single-post .entry-content{max-width:760px;margin-left:auto;margin-right:auto;}");
     expect(php).toContain("wp_add_inline_style( 'faktory-boulangerie-e2e-style',");
   });
   it("escapes quotes and backslashes in injected strings", () => {
     const odd = { ...tokens, fonts: { ...tokens.fonts, body: { ...tokens.fonts.body, family: `O'Brien\\Sans "X"` } } };
     const out = childThemeFunctions("demo", odd);
-    expect(out).toContain(`--gf-font-family:"O\\'BrienSans X", sans-serif;`);
+    expect(out).toContain(`--gf-font-family-base:"O\\'BrienSans X", sans-serif;`);
   });
 });
 

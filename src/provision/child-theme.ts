@@ -24,7 +24,7 @@ export function childThemeFunctions(slug: string, t: DesignTokens): string {
   const fn = `faktory_${slug.replace(/[^a-z0-9]/g, "_")}`;
   const handle = `faktory-${slug}-style`;
   const font = t.fonts.body.family.replace(/["\\]/g, "");
-  const css = `.gform-theme--framework{--gf-font-family:"${font}", sans-serif;}`
+  const css = `body .gform-theme--framework{--gf-font-family-base:"${font}", sans-serif;}`
     + ".single-post .entry-content{max-width:760px;margin-left:auto;margin-right:auto;}";
   return `<?php
 /**
