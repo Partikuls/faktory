@@ -34,20 +34,6 @@ export function formValues(form: GfLiveForm, marker: string, now: Date = new Dat
   return out;
 }
 
-type EntryRow = Record<string, unknown>;
-
-/**
- * The entry id of a `wp gf entry list --format=json` row. The CLI keys rows by translated column labels
- * ("Entry Id", "ID de l’entrée"), field columns as "<fieldId>: <label>", so the id is the non-field column named "id".
- */
-export function entryId(row: EntryRow): string | undefined {
-  for (const [key, value] of Object.entries(row)) {
-    if (/^\d+(\.\d+)?: /.test(key) || !/\bid\b/i.test(key)) continue;
-    if (/^\d+$/.test(String(value))) return String(value);
-  }
-  return undefined;
-}
-
 /**
  * Fill and send form `gfId` on `url` like a visitor, wait for its confirmation, then find the entry by its marker and
  * delete it. Never throws: every problem is reported as `ok: false` with a French `error`. The admin notification is
@@ -85,23 +71,25 @@ export async function submitForm(
     } finally {
       await context.close();
     }
-    const listed = await deps.runWp(ctx, ["gf", "entry", "list", String(gfId), "--format=json", "--page_size=50"]);
-    let entries: EntryRow[] | undefined;
-    if (listed.code === 0) {
-      try {
-        const parsed: unknown = JSON.parse(listed.stdout);
-        if (Array.isArray(parsed)) entries = parsed as EntryRow[];
-      } catch { /* stdout was not clean JSON (e.g. a WP-CLI notice printed before it) */ }
+    // `--format=ids` prints bare entry ids (newest first) whatever the site language; field values are then read from
+    // each raw entry, keyed by field id, so nothing depends on translated column labels.
+    const listed = await deps.runWp(ctx, ["gf", "entry", "list", String(gfId), "--format=ids", "--page_size=50"]);
+    const ids = listed.stdout.trim().split(/\s+/).filter(Boolean);
+    if (listed.code !== 0 || ids.some((id) => !/^\d+$/.test(id))) return done(problem ?? `liste des entrées illisible (#${gfId})`);
+    let id: string | undefined;
+    for (const candidate of ids) {
+      const got = await deps.runWp(ctx, ["gf", "entry", "get", candidate, "--raw", "--format=json"]);
+      if (got.code !== 0) continue;
+      let entry: unknown;
+      try { entry = JSON.parse(got.stdout); } catch { continue; }
+      if (entry && typeof entry === "object" && Object.values(entry).some((v) => typeof v === "string" && v.includes(marker))) { id = candidate; break; }
     }
-    if (!entries) return done(problem ?? `liste des entrées illisible (#${gfId})`);
-    const entry = entries.find((e) => Object.values(e).some((v) => typeof v === "string" && v.includes(marker)));
-    if (!entry) return done(problem ?? "aucune entrée créée");
-    const id = entryId(entry);
-    if (!id) return done(problem ?? `identifiant de l’entrée introuvable (#${gfId})`);
-    // An entry is always removed, even when the confirmation was missing. The CLI exits 0 when it cannot delete, so
-    // only its (untranslated) success line counts.
-    const removed = await deps.runWp(ctx, ["gf", "entry", "delete", id, "--force"]);
-    if (removed.code !== 0 || !removed.stdout.includes(`Deleted entry ${id}`)) return done(problem ?? `entrée #${id} non supprimée`);
+    if (!id) return done(problem ?? "aucune entrée créée");
+    // An entry is always removed, even when the confirmation was missing. The CLI exits 0 even when it cannot delete,
+    // so the deletion only counts once the entry can no longer be read.
+    await deps.runWp(ctx, ["gf", "entry", "delete", id, "--force"]);
+    const still = await deps.runWp(ctx, ["gf", "entry", "get", id]);
+    if (still.code === 0) return done(problem ?? `entrée #${id} non supprimée`);
     return done(problem);
   } catch (err) {
     return done((err instanceof Error ? err.message : String(err)).split("\n")[0].slice(0, 300));
