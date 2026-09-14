@@ -74,7 +74,14 @@ export async function submitForm(
       await context.close();
     }
     const listed = await deps.runWp(ctx, ["gf", "entry", "list", String(gfId), "--format=json", "--page_size=50"]);
-    const entries = listed.code === 0 ? (JSON.parse(listed.stdout) as EntryRow[]) : [];
+    let entries: EntryRow[] | undefined;
+    if (listed.code === 0) {
+      try {
+        const parsed: unknown = JSON.parse(listed.stdout);
+        if (Array.isArray(parsed)) entries = parsed as EntryRow[];
+      } catch { /* stdout was not clean JSON (e.g. a WP-CLI notice printed before it) */ }
+    }
+    if (!entries) return done(problem ?? `liste des entrées illisible (#${gfId})`);
     const entry = entries.find((e) => Object.values(e).some((v) => typeof v === "string" && v.includes(marker)));
     if (!entry) return done(problem ?? "aucune entrée créée");
     // An entry is always removed, even when the confirmation was missing.

@@ -1,5 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { formValues, tomorrow, type GfLiveForm } from "../../src/qa/forms.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Browser } from "playwright";
+import type { SiteContext } from "../../src/docker.js";
+import { formValues, tomorrow, submitForm, deps, type GfLiveForm } from "../../src/qa/forms.js";
 
 const form: GfLiveForm = { id: 1, fields: [
   { id: 1, type: "text" }, { id: 2, type: "email" }, { id: 3, type: "phone" }, { id: 4, type: "date" },
@@ -21,5 +23,43 @@ describe("formValues", () => {
 describe("tomorrow", () => {
   it("formats the next day as dd/mm/yyyy", () => {
     expect(tomorrow(new Date(2026, 8, 14, 23, 30))).toBe("15/09/2026");
+  });
+});
+
+/** A minimal fake Browser whose page never touches a real DOM: every action is an async no-op, and the
+ * confirmation locator resolves immediately (the test is about the entry-list branch, not submission). */
+function fakeBrowser(): Browser {
+  const page = {
+    goto: async () => {},
+    fill: async () => {},
+    selectOption: async () => {},
+    click: async () => {},
+    keyboard: { press: async () => {} },
+    locator: () => ({ waitFor: async () => {}, allInnerTexts: async () => [] as string[] }),
+  };
+  const context = { newPage: async () => page, close: async () => {} };
+  return { newContext: async () => context } as unknown as Browser;
+}
+
+describe("submitForm", () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+
+  it("reports an unreadable entry list instead of throwing the JSON.parse error", async () => {
+    vi.spyOn(deps, "runWp").mockImplementation(async (_ctx, args) => {
+      if (args[0] === "gf" && args[1] === "form" && args[2] === "get") {
+        return { stdout: JSON.stringify({ id: 1, fields: [{ id: 1, type: "text" }] }), stderr: "", code: 0 };
+      }
+      if (args[0] === "gf" && args[1] === "entry" && args[2] === "list") {
+        // A WP-CLI deprecation notice printed to stdout before the JSON array: code 0, but not clean JSON.
+        return { stdout: "Warning: x\n[]", stderr: "", code: 0 };
+      }
+      throw new Error(`unexpected wp call: ${args.join(" ")}`);
+    });
+    const ctx = {} as unknown as SiteContext;
+
+    const result = await submitForm(fakeBrowser(), ctx, "http://localhost:8101/contact/", "contact", 1);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("liste des entrées illisible (#1)");
   });
 });
