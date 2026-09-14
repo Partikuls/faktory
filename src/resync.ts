@@ -43,6 +43,7 @@ export async function resyncFromMarkdown<T>(ctx: SiteContext, opts: ResyncOption
       `Le fichier \`${md}\` a été modifié à la main après la génération de \`${json}\`.`,
       `Lis les deux fichiers avec Read. Produis la nouvelle version structurée de ${opts.what} qui reflète exactement le contenu de \`${md}\` :`,
       `reprends les valeurs de \`${json}\` partout où le markdown n'a rien changé, et applique chaque modification du markdown (ajouts, suppressions, renommages, nouvelles valeurs).`,
+      "Ignore la section « Informations à compléter » si elle existe : elle est recalculée depuis le JSON et ne contient aucune donnée.",
       "N'invente rien qui ne soit ni dans le markdown ni dans le JSON. Réponds uniquement avec la structure demandée.",
     ].join("\n"),
     allowedTools: ["Read"],

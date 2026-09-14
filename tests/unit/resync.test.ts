@@ -40,6 +40,7 @@ describe("resyncFromMarkdown", () => {
     expect(call.outputFormat?.type).toBe("json_schema");
     expect(call.prompt).toContain("design-system.md");
     expect(call.prompt).toContain("design-tokens.json");
+    expect(call.prompt).toContain("Ignore la section « Informations à compléter »");
   });
   it("throws a readable error when the re-extracted json is invalid", async () => {
     const c = ctx();
