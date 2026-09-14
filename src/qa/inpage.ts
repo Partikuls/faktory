@@ -1,7 +1,10 @@
-export type InPageResult = { unstyledBlocks: string[]; brokenImages: string[]; missingAlt: number; h1Count: number; links: string[] };
+export type InPageResult = { unstyledBlocks: string[]; brokenImages: string[]; missingAlt: number; h1Count: number; links: string[]; untranslated: string[] };
 
 /** GenerateBlocks per-block classes (`gb-element-e756c829`, `gb-text-…`, …); every one must have a rule in the page's `<style>` tags. */
 export const GB_CLASS_RE = /^gb-(element|text|media|container|grid|shape|looper|query)-[a-z0-9]+$/;
+
+/** English strings WordPress/GeneratePress print when a French language pack is missing (inlined in inPageAudit). */
+export const UNTRANSLATED = ["by", "Read more", "Leave a Comment", "Posted in"];
 
 /**
  * Runs INSIDE the page via `page.evaluate(inPageAudit)`: Playwright serializes the function source, so it must
@@ -18,5 +21,9 @@ export function inPageAudit(): InPageResult {
   const missingAlt = imgs.filter((i) => !i.hasAttribute("alt")).length;
   const h1Count = document.querySelectorAll("h1").length;
   const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map((a) => a.href);
-  return { unstyledBlocks, brokenImages, missingAlt, h1Count, links };
+  const words = ["by", "Read more", "Leave a Comment", "Posted in"];
+  const bodyText = document.body.innerText;
+  // "by" only as a lowercase standalone word, not inside "Baby" or "by-pass"
+  const untranslated = words.filter((w) => new RegExp(`(^|[\\s(])${w}(?=[\\s:.,)]|$)`).test(bodyText));
+  return { unstyledBlocks, brokenImages, missingAlt, h1Count, links, untranslated };
 }

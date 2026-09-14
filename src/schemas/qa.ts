@@ -40,6 +40,7 @@ export const PageCheckSchema = z.strictObject({
   missingAlt: z.number().int().min(0),
   unstyledBlocks: z.array(z.string()),
   h1Count: z.number().int().min(0),
+  untranslated: z.array(z.string()).default([]),
   mobileOverflow: z.boolean(),
   checkedAt: z.string(),
 });
@@ -71,6 +72,7 @@ export function checkIssues(c: PageCheck): string[] {
   if (c.unstyledBlocks.length) out.push(`${c.unstyledBlocks.length} bloc(s) GenerateBlocks sans CSS : ${c.unstyledBlocks.join(", ")}`);
   if (c.h1Count !== 1) out.push(`${c.h1Count} h1 (attendu : 1)`);
   if (c.mobileOverflow) out.push("débordement horizontal en mobile");
+  if (c.untranslated.length) out.push(`textes anglais non traduits : ${c.untranslated.join(", ")}`);
   return out;
 }
 

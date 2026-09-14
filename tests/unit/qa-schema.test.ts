@@ -49,6 +49,7 @@ describe("page check", () => {
       ...check(), status: 500, consoleErrors: ["Uncaught TypeError: x is not a function", "b", "c", "d"], pageErrors: ["ReferenceError: y"],
       failedRequests: [{ url: "http://localhost:8101/wp-content/x.css", status: 404 }], brokenLinks: [{ href: "http://localhost:8101/dead/", status: 404 }],
       brokenImages: ["http://localhost:8101/img.png"], missingAlt: 2, unstyledBlocks: ["gb-element-abc", "gb-text-def"], h1Count: 2, mobileOverflow: true,
+      untranslated: ["by", "Read more"],
     };
     expect(hasHardFailure(c)).toBe(true);
     expect(checkIssues(c)).toEqual([
@@ -62,7 +63,12 @@ describe("page check", () => {
       "2 bloc(s) GenerateBlocks sans CSS : gb-element-abc, gb-text-def",
       "2 h1 (attendu : 1)",
       "débordement horizontal en mobile",
+      "textes anglais non traduits : by, Read more",
     ]);
+  });
+  it("accepts a stored check without untranslated (earlier runs) and defaults it to []", () => {
+    const { untranslated: _u, ...old } = check();
+    expect(parsePageCheck(old).untranslated).toEqual([]);
   });
 });
 

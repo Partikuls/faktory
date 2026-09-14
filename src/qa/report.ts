@@ -31,6 +31,7 @@ function pageSection(p: QaPage): string {
     `| Images sans alt | ${c.missingAlt} |`,
     `| Blocs GenerateBlocks sans CSS | ${c.unstyledBlocks.length} |`,
     `| h1 | ${c.h1Count} |`,
+    `| Textes non traduits | ${c.untranslated.length} |`,
     `| Débordement mobile | ${yesNo(c.mobileOverflow)} |`,
     "",
   ];
