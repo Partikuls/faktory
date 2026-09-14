@@ -106,6 +106,8 @@ If you edited the Markdown, `approve` re-extracts `design-tokens.json` and re-re
 npm run faktory -- run my-site
 ```
 
+To go from brief to bundle without stopping at the checkpoints, run `npm run faktory -- run my-site --yes` instead: spec and design are approved as generated (the brief gaps warning is still printed).
+
 There are no more checkpoints. This single command runs the remaining stages in order:
 
 | Stage | What it does |
@@ -134,6 +136,8 @@ npm run faktory -- status my-site
 
 This prints one row per stage with its status, cost, duration and last message, then the totals. It needs neither Docker nor an agent and costs nothing.
 
+`npm run faktory -- status my-site --history` lists every stage run and approval with its cost, duration and Faktory commit; `npm run faktory -- compare site-a site-b` compares two sites stage by stage.
+
 ## 9. Review the result
 
 The site runs at `http://localhost:<port>/`. The port is shown by `status`. The admin is at `http://localhost:<port>/wp-admin/` with user `admin` and the password from `sites/my-site/faktory.json`.
@@ -145,6 +149,8 @@ open sites/my-site/qa/QA-REPORT.md
 ```
 
 It lists, for every URL, the automated checks, the review verdict, what the agent fixed and what it left for a person. Screenshots are next to it in `sites/my-site/qa/`. Pages marked "à revoir" need a human look. That is normal and does not stop the export.
+
+`QA-REPORT.md` shows `| Formulaires soumis | n/m |` on pages with a form: QA sent each form once and deleted the test entry.
 
 ## 10. Deliver the bundle
 
@@ -181,7 +187,7 @@ Every stage can run on its own with `--only`. Most stages reuse what already exi
 | Resume after a failure | Fix the cause, then `run my-site`. It restarts at the failed stage. |
 | Restart from a given stage | `run my-site --from pages` |
 
-Regenerating the spec or the design with `--only spec` or `--only design` overwrites your Markdown edits.
+Regenerating the spec or the design (`run --only spec`, `--from design`…) asks for confirmation, because it overwrites your edits, then sets the later stages back to pending. Page titles changed in `SITE-SPEC.md` are applied to WordPress by the next `provision`, `pages`, `content` or `qa` run.
 
 ## Troubleshooting
 
@@ -190,6 +196,7 @@ Regenerating the spec or the design with `--only spec` or `--only design` overwr
 | `Stage spec awaits approval` | A checkpoint is waiting. Review the artifact, then run `approve`. |
 | `Cost budget reached` | The site reached `maxCostUsd`, which defaults to $40 in `faktory.config.json`. Raise it, or pass `--max-cost 60` for one run. |
 | `⚠ SITE-SPEC.md is newer than site-spec.json` | You edited the Markdown after approval. Run `resync` to apply the edit. |
+| `Régénérer design écrase des éditions manuelles ; relancez avec --yes pour confirmer` | You ran a regeneration without a terminal (script, nohup). Add `--yes` once you are sure. |
 | A stage shows `failed` in `status` | Its message holds the error. Fix the cause and run again. |
 | The site does not respond | Check the containers with `docker ps`. `run my-site --only provision` starts the stack again. |
 
