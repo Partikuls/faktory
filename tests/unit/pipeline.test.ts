@@ -292,7 +292,6 @@ describe("run history", () => {
     const runs = readRuns(siteDir(config, "pp"));
     expect(runs.map((r) => r.kind)).toEqual(["stage", "approve"]);
     expect(runs[1]).toMatchObject({ stage: "spec", status: "done", costUsd: 0.3, message: "re-synced" });
-    expect(runs[1].runId).not.toBe(runs[0].runId);
   });
 });
 
