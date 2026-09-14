@@ -47,7 +47,7 @@ export function blogLoopTree(tokens: DesignTokens): GbNode[] {
       "&:hover": { transform: "translateY(-2px)", boxShadow: "0 8px 24px color-mix(in srgb, var(--contrast) 12%, transparent)" },
       "&:focus-within": focusRing,
     }, innerBlocks: [
-      { type: "media", tagName: "img", htmlAttributes: { src: "{{featured_image key:url|size:medium_large}}", alt: "{{featured_image key:alt}}", loading: "lazy" },
+      { type: "media", tagName: "img", htmlAttributes: { src: "{{featured_image key:url|size:medium_large}}", alt: "{{featured_image key:alt|required:false}}", loading: "lazy" },
         styles: { display: "block", width: "100%", height: "auto", aspectRatio: "3/2", objectFit: "cover", backgroundColor: "var(--base-2)" } },
       { type: "element", tagName: "div", styles: { display: "flex", flexDirection: "column", gap: `${step(2)}px`, padding: `${step(4)}px`, flexGrow: "1" }, innerBlocks: [
         text("p", "{{term_list tax:category}}", { fontSize: "13px", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", margin: "0" }),
@@ -81,10 +81,17 @@ export function blogLoopTree(tokens: DesignTokens): GbNode[] {
     '<div class="gb-query-page-numbers gb-query-page-numbers-fkblogpn"></div>',
   ) };
 
+  // WordPress core query-title: renders get_the_archive_title() on category archives only (is_archive()),
+  // nothing on the posts page — the loop-template disables GP's default loop (and generate_archive_title with it),
+  // so this keeps a single h1 on category archives without duplicating the blog page's own h1.
+  const queryTitle: GbNode = { type: "raw", rawMarkup: rawGbBlock("query-title", { type: "archive", showPrefix: false, level: 1 }, "") };
+
   return [{
     type: "query", tagName: "div", attrs: { inheritQuery: true, query: {} }, styles: {
       ...container, padding: `${step(7)}px 24px`, [MOBILE]: { padding: `${step(5)}px 16px` },
+      "& .wp-block-query-title": { marginTop: "0", marginBottom: `${step(5)}px` },
     }, innerBlocks: [
+      queryTitle,
       { type: "looper", tagName: "div", styles: {
         display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: `${step(5)}px`,
         [TABLET]: { gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
@@ -109,7 +116,7 @@ export function postHeroTree(tokens: DesignTokens): GbNode[] {
           "& a:hover": { textDecoration: "underline" },
         }),
         text("h1", "{{post_title}}", { marginBottom: `${step(5)}px` }),
-        { type: "media", tagName: "img", htmlAttributes: { src: "{{featured_image key:url|size:large}}", alt: "{{featured_image key:alt}}" },
+        { type: "media", tagName: "img", htmlAttributes: { src: "{{featured_image key:url|size:large}}", alt: "{{featured_image key:alt|required:false}}" },
           styles: { display: "block", width: "100%", height: "auto", aspectRatio: "16/9", objectFit: "cover", borderRadius: `${tokens.radius}px`, backgroundColor: "var(--base-2)" } },
       ],
     }],

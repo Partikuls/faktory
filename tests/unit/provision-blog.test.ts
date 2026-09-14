@@ -47,7 +47,7 @@ describe("blogLoopTree", () => {
   it("renders a card with image, category, date, linked h2 title, excerpt and an accessible read link", () => {
     const item = all.find((n) => n.type === "loop-item")!;
     const inner = flat([item]);
-    expect(inner.find((n) => n.type === "media")!.htmlAttributes).toMatchObject({ src: "{{featured_image key:url|size:medium_large}}", alt: "{{featured_image key:alt}}" });
+    expect(inner.find((n) => n.type === "media")!.htmlAttributes).toMatchObject({ src: "{{featured_image key:url|size:medium_large}}", alt: "{{featured_image key:alt|required:false}}" });
     const contents = inner.map((n) => n.content ?? "");
     expect(contents).toEqual(expect.arrayContaining(["{{term_list tax:category}}", "{{post_date}}", "{{post_title link:post}}", "{{post_excerpt length:20}}"]));
     expect(inner.find((n) => n.tagName === "h2")!.content).toBe("{{post_title link:post}}");
@@ -58,10 +58,11 @@ describe("blogLoopTree", () => {
   });
   it("ends with raw no-results and page-numbers blocks whose attribute JSON never contains --", () => {
     const raws = all.filter((n) => n.type === "raw").map((n) => n.rawMarkup!);
-    expect(raws).toHaveLength(2);
-    expect(raws[0]).toContain("wp:generateblocks/query-no-results");
-    expect(raws[0]).toContain("Aucun article pour le moment.");
-    expect(raws[1]).toContain("wp:generateblocks/query-page-numbers");
+    expect(raws).toHaveLength(3);
+    expect(raws[0]).toBe('<!-- wp:query-title {"type":"archive","showPrefix":false,"level":1} /-->');
+    expect(raws[1]).toContain("wp:generateblocks/query-no-results");
+    expect(raws[1]).toContain("Aucun article pour le moment.");
+    expect(raws[2]).toContain("wp:generateblocks/query-page-numbers");
     for (const r of raws) for (const comment of r.match(/<!--[\s\S]*?-->/g)!) expect(comment.slice(4, -3)).not.toContain("--");
   });
 });
@@ -79,6 +80,7 @@ describe("postHeroTree", () => {
     expect(all.filter((n) => n.tagName === "h1").map((n) => n.content)).toEqual(["{{post_title}}"]);
     expect(all.some((n) => (n.content ?? "").includes("{{term_list tax:category|link:true}}") && (n.content ?? "").includes("{{post_date}}"))).toBe(true);
     expect(all.find((n) => n.type === "media")!.styles).toMatchObject({ aspectRatio: "16/9", objectFit: "cover" });
+    expect(all.find((n) => n.type === "media")!.htmlAttributes).toMatchObject({ alt: "{{featured_image key:alt|required:false}}" });
     noHex(postHeroTree(tokens));
   });
 });
