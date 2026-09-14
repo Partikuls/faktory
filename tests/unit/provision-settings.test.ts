@@ -64,6 +64,7 @@ describe("buildGenerateSettings", () => {
       form_background_color: "var(--base-3)", form_text_color: "var(--contrast)", form_border_color: "var(--contrast-3)",
       form_button_background_color: "var(--accent)", form_button_background_color_hover: "var(--contrast)",
       form_button_text_color: "var(--base-3)", form_button_text_color_hover: "var(--base-3)",
+      form_border_color_focus: "var(--accent)", form_background_color_focus: "var(--base-3)", form_text_color_focus: "var(--contrast)",
       footer_background_color: "var(--contrast)",
     });
     const { global_colors: _palette, ...rest } = s;
