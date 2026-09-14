@@ -10,7 +10,10 @@ import { artifactPath, pageTreePath } from "../../src/artifacts.js";
 import { articlePath, articleSlug, type Article } from "../../src/schemas/article.js";
 import { featureMarker, formMarker, FEATURE_WRAPPER_ATTR, FORM_WRAPPER_ATTR, type GbNode, type PageTree } from "../../src/schemas/page-tree.js";
 import { checkPath, parsePageCheck, parseQaReport, qaReportJsonPath, qaReportMdPath, screenshotPath } from "../../src/schemas/qa.js";
-import { chromiumInstalled } from "../../src/qa/browser.js";
+import { chromiumInstalled, launchBrowser } from "../../src/qa/browser.js";
+import { submitForm } from "../../src/qa/forms.js";
+import { readFormsManifest } from "../../src/pages/placements.js";
+import { wpJson } from "../../src/wp.js";
 import { deps as pagesDeps } from "../../src/stages/pages.js";
 import { deps as contentDeps } from "../../src/stages/content.js";
 import { deps as qaDeps } from "../../src/stages/qa.js";
@@ -113,6 +116,13 @@ describe.skipIf(!process.env.FAKTORY_DOCKER || !chromiumInstalled())("qa stage o
     const html = await (await fetch(`http://localhost:${ctx.state.port}/`)).text();
     expect(html).toContain("Bienvenue chez Maison Rivet (QA)");
     expect(html).toContain("gb-element-"); // still a GenerateBlocks page
+    // B3: every form really submits, and the test entry is removed afterwards
+    const forms = readFormsManifest(ctx);
+    const devis = report.pages.find((p) => p.slug === "commandes-evenements")!.check.formSubmissions;
+    const contact = report.pages.find((p) => p.slug === "contact")!.check.formSubmissions;
+    expect(devis, JSON.stringify(devis)).toMatchObject([{ formId: "devis_evenement", gfId: forms.devis_evenement.gfId, ok: true }]);
+    expect(contact, JSON.stringify(contact)).toMatchObject([{ formId: "contact", gfId: forms.contact.gfId, ok: true }]);
+    for (const { gfId } of Object.values(forms)) expect(await wpJson<unknown[]>(ctx, ["gf", "entry", "list", String(gfId)]), `entries of #${gfId}`).toEqual([]);
   }, 600_000);
 
   it("reuses every unchanged page on a second run, and re-reviews only the page whose tree changed", async () => {
@@ -137,4 +147,16 @@ describe.skipIf(!process.env.FAKTORY_DOCKER || !chromiumInstalled())("qa stage o
     const home = report.pages.find((p) => p.slug === "accueil")!;
     expect(home).toMatchObject({ reused: true, verdict: "fixed" }); // carried forward from the first run's fix
   }, 600_000);
+
+  it("reports a submission that fails validation, quoting the message, and leaves no entry", async () => {
+    const forms = readFormsManifest(ctx);
+    const browser = await launchBrowser();
+    try {
+      const url = `http://localhost:${ctx.state.port}/contact/`;
+      const s = await submitForm(browser, ctx, url, "contact", forms.contact.gfId, { values: { 1: "" } }); // field 1 "Nom" is required
+      expect(s.ok).toBe(false);
+      expect(s.error).toMatch(/^pas de confirmation \(« .+ »\)$/);
+      expect(await wpJson<unknown[]>(ctx, ["gf", "entry", "list", String(forms.contact.gfId)])).toEqual([]);
+    } finally { await browser.close(); }
+  }, 120_000);
 });

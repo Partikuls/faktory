@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Stage } from "../pipeline.js";
-import { assertBudget } from "../budget.js";
+import { assertBudget, withBudgetSlots } from "../budget.js";
 import { readJsonArtifact, pageTreePath } from "../artifacts.js";
 import { mapLimit } from "../concurrency.js";
 import { siteUrl, type SiteContext } from "../docker.js";
@@ -11,6 +11,8 @@ import { republishPage } from "../pages/publish.js";
 import { readFormsManifest, readPluginManifests } from "../pages/placements.js";
 import { checkPage, launchBrowser, screenshotOpts, type LinkCache } from "../qa/browser.js";
 import { reviewPage } from "../qa/review.js";
+import { submitForm } from "../qa/forms.js";
+import { formPages, type FormsManifest } from "../schemas/forms-manifest.js";
 import { writeQaReport } from "../qa/report.js";
 import { parseSiteSpec, type Page, type SiteSpec } from "../schemas/site-spec.js";
 import { articleSlug } from "../schemas/article.js";
@@ -19,8 +21,8 @@ import {
   type PageCheck, type QaIssue, type QaPage, type QaReport,
 } from "../schemas/qa.js";
 
-export const deps = { ensurePages, launchBrowser, checkPage, reviewPage, republishPage, readQaReport };
-// Same caveat as PAGES_CONCURRENCY: each concurrent agent gets the whole remaining budget as its own cap.
+export const deps = { ensurePages, launchBrowser, checkPage, reviewPage, republishPage, readQaReport, submitForm };
+// Pages audited in parallel; their review agents share the remaining budget (see withBudgetSlots).
 export const QA_CONCURRENCY = 3;
 
 export type Target = { slug: string; kind: QaPage["kind"]; url: string; page?: Page };
@@ -37,6 +39,16 @@ export function qaTargets(ctx: SiteContext, spec: SiteSpec): Target[] {
     seen.add(t.slug);
   }
   return targets;
+}
+
+/** Each form of the manifest once, on the first sitemap page that carries it (spec B3); forms on no target are skipped. */
+export function formTargets(spec: SiteSpec, forms: FormsManifest, targets: Target[]): { formId: string; gfId: number; target: Target }[] {
+  const out: { formId: string; gfId: number; target: Target }[] = [];
+  for (const [formId, entry] of Object.entries(forms)) {
+    const target = targets.find((t) => t.slug === formPages(spec, formId)[0]);
+    if (target) out.push({ formId, gfId: entry.gfId, target });
+  }
+  return out;
 }
 
 function writeCheck(ctx: SiteContext, slug: string, check: PageCheck): void {
@@ -99,8 +111,19 @@ export const qaStage: Stage = {
     };
 
     let results: PromiseSettledResult<QaPage>[];
-    try { results = await mapLimit(targets, QA_CONCURRENCY, audit); }
-    finally { await browser.close(); }
+    try {
+      results = await withBudgetSlots(ctx, QA_CONCURRENCY, () => mapLimit(targets, QA_CONCURRENCY, audit));
+      // After the review rounds, so a republished page is never submitted twice; sequential, one browser context each.
+      for (const f of formTargets(spec, forms, targets)) {
+        const settled = results[targets.indexOf(f.target)];
+        if (settled.status !== "fulfilled") continue;
+        const s = await deps.submitForm(browser, ctx, f.target.url, f.formId, f.gfId);
+        console.log(`  ${s.ok ? "✔" : "✖"} ${label(f.target)} form ${f.formId} (#${f.gfId}) ${s.ok ? "submitted" : `— ${s.error}`}`);
+        const page = settled.value;
+        page.check = { ...page.check, formSubmissions: [...page.check.formSubmissions, s] };
+        writeCheck(ctx, page.slug, page.check);
+      }
+    } finally { await browser.close(); }
 
     const failed: string[] = [];
     results.forEach((r, i) => {
