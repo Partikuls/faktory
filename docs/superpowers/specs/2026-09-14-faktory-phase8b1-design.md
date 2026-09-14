@@ -249,9 +249,11 @@ Exécution du plan `docs/superpowers/plans/2026-09-14-faktory-phase8b1-guardrail
 | plugins | 1,46 $ · 4 min 07 s | 1,50 $ · 4 min 03 s |
 | pages | 5,68 $ · 8 min 48 s | 5,62 $ · 8 min 33 s |
 | content | 1,84 $ · 3 min 11 s | 1,90 $ · 2 min 49 s |
-| qa | 0,00 $ · 50 s | 5,38 $ · 4 min 48 s |
+| qa | 2,31 $ · 1 min 55 s | 5,38 $ · 4 min 48 s |
 | export | 0,00 $ · 9 s | 0,00 $ · 11 s |
-| **total** | **10,44 $ · 23 min 47 s** | **15,84 $ · 26 min 47 s** |
+| **total** | **12,75 $ · 24 min 52 s** | **15,84 $ · 26 min 47 s** |
+
+Ce tableau reprend l'historique du run sans surveillance ; un `faktory compare` lancé après le contrôle sous plafond de budget montre à la place la relecture `qa` de ce contrôle (0,00 $ · 50 s), `stageTotals` prenant le dernier run de chaque étape.
 
 Résultats :
 
