@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, utimesSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadConfig } from "../../src/config.js";
@@ -293,5 +293,75 @@ describe("run history", () => {
     expect(runs.map((r) => r.kind)).toEqual(["stage", "approve"]);
     expect(runs[1]).toMatchObject({ stage: "spec", status: "done", costUsd: 0.3, message: "re-synced" });
     expect(runs[1].runId).not.toBe(runs[0].runId);
+  });
+});
+
+describe("regenerating a checkpoint", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  const LATER = ["provision", "plugins", "pages", "content", "qa", "export"] as const;
+
+  /** Every stage done, design.md + tokens and one page tree on disk. */
+  async function doneSite() {
+    const config = await setup();
+    const dir = siteDir(config, "pp");
+    let s = readState(dir);
+    for (const name of STAGES) s = setStage(s, name, "done");
+    writeState(dir, s);
+    const ctx = loadContext(config, "pp");
+    writeTextArtifact(ctx, "designSystemMd", "# design");
+    writeJsonArtifact(ctx, "designTokensJson", {});
+    mkdirSync(join(dir, "pages"), { recursive: true });
+    writeFileSync(join(dir, "pages/accueil.gb.json"), "[]");
+    return config;
+  }
+
+  it("--only design asks first, names the overwritten and kept files, then resets the later stages", async () => {
+    const config = await doneSite(); const log: string[] = [];
+    vi.spyOn(deps, "isInteractive").mockReturnValue(true);
+    const confirm = vi.spyOn(deps, "confirm").mockResolvedValue(true);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const s = await runSite(config, "pp", { only: "design", stages: { design: ok("design", false, log) } });
+    expect(confirm).toHaveBeenCalledTimes(1);
+    const notice = warn.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(notice).toContain("⚠ Régénérer design écrase : design-system.md, design-tokens.json");
+    expect(notice).not.toContain("preview.html");
+    expect(notice).toContain("Les étapes suivantes repasseront en attente : provision, plugins, pages, content, qa, export");
+    expect(notice).toContain("Conservés et réutilisés par leurs étapes : pages/*.gb.json — supprimez-les pour tout reconstruire");
+    expect(log).toEqual(["design"]);
+    expect(s.stages.spec.status).toBe("done");
+    for (const name of LATER) expect(s.stages[name].status, name).toBe("pending");
+  });
+  it("runs nothing and changes nothing when the answer is no", async () => {
+    const config = await doneSite(); const log: string[] = [];
+    vi.spyOn(deps, "isInteractive").mockReturnValue(true);
+    vi.spyOn(deps, "confirm").mockResolvedValue(false);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const s = await runSite(config, "pp", { only: "design", stages: { design: ok("design", false, log) } });
+    expect(log).toEqual([]);
+    for (const name of STAGES) expect(s.stages[name].status, name).toBe("done");
+  });
+  it("--yes skips the question but still resets the later stages", async () => {
+    const config = await doneSite(); const log: string[] = [];
+    const confirm = vi.spyOn(deps, "confirm");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const s = await runSite(config, "pp", { only: "design", yes: true, stages: { design: ok("design", false, log) } });
+    expect(confirm).not.toHaveBeenCalled();
+    expect(log).toEqual(["design"]);
+    expect(s.stages.provision.status).toBe("pending");
+  });
+  it("refuses without a terminal and without --yes", async () => {
+    const config = await doneSite(); const log: string[] = [];
+    vi.spyOn(deps, "isInteractive").mockReturnValue(false);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(runSite(config, "pp", { only: "design", stages: { design: ok("design", false, log) } })).rejects.toThrow(/relancez avec --yes pour confirmer/);
+    expect(log).toEqual([]);
+  });
+  it("does not ask for a non-checkpoint stage, nor for a checkpoint that was never generated", async () => {
+    const confirm = vi.spyOn(deps, "confirm");
+    const done = await doneSite();
+    await runSite(done, "pp", { only: "provision", stages: { provision: ok("provision") } });
+    const fresh = await setup();
+    await runSite(fresh, "pp", { only: "spec", stages: { spec: ok("spec") } });
+    expect(confirm).not.toHaveBeenCalled();
   });
 });

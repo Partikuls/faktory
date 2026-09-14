@@ -1,9 +1,12 @@
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import * as readline from "node:readline/promises";
 import type { FaktoryConfig } from "./config.js";
 import { composeDown, type SiteContext } from "./docker.js";
 import { STAGES, readState, writeState, setStage, firstIncompleteStage, awaitingStage, type SiteState, type StageName } from "./state.js";
 import { siteDir } from "./workspace.js";
-import { isStale } from "./artifacts.js";
+import { ARTIFACTS, PAGES_DIR, artifactPath, hasArtifact, isStale, type ArtifactKey } from "./artifacts.js";
+import { ARTICLES_DIR } from "./schemas/article.js";
 import { RESYNC_TARGETS } from "./resync.js";
 import { assertBudget } from "./budget.js";
 import { provisionStage } from "./stages/provision.js";
@@ -28,7 +31,39 @@ export interface Stage {
 
 export const registry: Partial<Record<StageName, Stage>> = { spec: specStage, design: designStage, provision: provisionStage, pages: pagesStage, plugins: pluginsStage, content: contentStage, qa: qaStage, export: exportStage };
 
-export const deps = { composeDown };
+export const deps = {
+  composeDown,
+  isInteractive: (): boolean => process.stdin.isTTY === true,
+  confirm: async (question: string): Promise<boolean> => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    try { return (await rl.question(question)).trim().toLowerCase() === "y"; } finally { rl.close(); }
+  },
+};
+
+/** What a regeneration of a checkpoint stage overwrites; the first key is the hand-edited markdown that triggers the confirmation. */
+export const REGENERATED: Partial<Record<StageName, ArtifactKey[]>> = {
+  spec: ["siteSpecMd", "siteSpecJson"],
+  design: ["designSystemMd", "designTokensJson", "previewHtml", "previewTree", "previewMarkup"],
+};
+
+const hasFiles = (dir: string, suffix: string): boolean => existsSync(dir) && readdirSync(dir).some((f) => f.endsWith(suffix));
+
+/** The warning shown before `--from/--only <checkpoint>` overwrites hand edits; undefined when nothing would be overwritten. */
+export function regenerationNotice(ctx: SiteContext, stage: StageName): string | undefined {
+  const keys = REGENERATED[stage];
+  if (!keys || !hasArtifact(ctx, keys[0])) return undefined;
+  const files = keys.filter((k) => existsSync(artifactPath(ctx, k))).map((k) => ARTIFACTS[k]);
+  const later = STAGES.slice(STAGES.indexOf(stage) + 1);
+  const kept = [
+    ...(hasFiles(join(ctx.siteDir, PAGES_DIR), ".gb.json") ? ["pages/*.gb.json"] : []),
+    ...(hasFiles(join(ctx.siteDir, ARTICLES_DIR), ".json") ? ["content/articles/*.json"] : []),
+  ];
+  return [
+    `⚠ Régénérer ${stage} écrase : ${files.join(", ")}`,
+    `  Les étapes suivantes repasseront en attente : ${later.join(", ")}`,
+    ...(kept.length ? [`  Conservés et réutilisés par leurs étapes : ${kept.join(", ")} — supprimez-les pour tout reconstruire`] : []),
+  ].join("\n");
+}
 
 export function loadContext(config: FaktoryConfig, slug: string): SiteContext {
   const dir = siteDir(config, slug);
@@ -78,6 +113,18 @@ export async function runSite(
   const ctx = loadContext(config, slug);
   const stages = opts.stages ?? registry;
   const record = recorder(ctx, opts);
+  const target = opts.only ?? opts.from;
+  const notice = target ? regenerationNotice(ctx, target) : undefined;
+  if (target && notice) {
+    console.warn(notice);
+    if (!opts.yes) {
+      if (!deps.isInteractive()) throw new Error(`Régénérer ${target} écrase des éditions manuelles ; relancez avec --yes pour confirmer`);
+      if (!(await deps.confirm("Continuer ? [y/N] "))) { console.log("Aborted."); return ctx.state; }
+    }
+    let next = ctx.state;
+    for (const later of STAGES.slice(STAGES.indexOf(target) + 1)) next = setStage(next, later, "pending");
+    persist(ctx, next);
+  }
   let start = opts.only ?? opts.from ?? firstIncompleteStage(ctx.state);
   if (!start) { console.log(`Site "${slug}": all stages done.`); return ctx.state; }
   if (!opts.only && !opts.from && awaitingStage(ctx.state) === start) {
