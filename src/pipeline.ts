@@ -14,6 +14,7 @@ import { pluginsStage } from "./stages/plugins.js";
 import { contentStage } from "./stages/content.js";
 import { qaStage } from "./stages/qa.js";
 import { exportStage } from "./stages/export.js";
+import { appendRun, faktoryVersion, type RunRecord } from "./history.js";
 
 export { assertBudget };
 
@@ -43,16 +44,48 @@ function persist(ctx: SiteContext, next: SiteState): SiteState {
 
 const round4 = (n: number) => Math.round(n * 10000) / 10000;
 
+export type Recorder = (event: Omit<RunRecord, "runId" | "faktory" | "options">) => void;
+
+/** One recorder per CLI call: every event it writes shares the call's run id, Faktory commit and options. */
+export function recorder(ctx: SiteContext, opts: { from?: StageName; only?: StageName; yes?: boolean }): Recorder {
+  const runId = new Date().toISOString();
+  const faktory = faktoryVersion(ctx.config.repoRoot);
+  const options = { from: opts.from ?? null, only: opts.only ?? null, yes: !!opts.yes, maxCostUsd: ctx.config.maxCostUsd };
+  return (event) => appendRun(ctx.siteDir, { runId, faktory, options, ...event });
+}
+
+type StageMap = Partial<Record<StageName, Stage>>;
+
+/** Approve the awaiting checkpoint `name`: its onApprove (re-sync, brief gaps warning), the re-sync cost charged to the stage, the run's duration kept. */
+export async function approveStage(ctx: SiteContext, name: StageName, stages: StageMap, record: Recorder): Promise<SiteState> {
+  assertBudget(ctx.config, ctx.state);
+  const stage = stages[name];
+  const prev = ctx.state.stages[name], startCost = ctx.state.costUsd, startedAt = Date.now();
+  const msg = (stage?.onApprove ? await stage.onApprove(ctx) : undefined) ?? "approved";
+  const approveCost = round4(ctx.state.costUsd - startCost);
+  const next = persist(ctx, setStage(ctx.state, name, "done", msg, { costUsd: round4((prev.costUsd ?? 0) + approveCost), durationMs: prev.durationMs }));
+  record({
+    kind: "approve", stage: name, status: "done", costUsd: approveCost, durationMs: Date.now() - startedAt,
+    startedAt: new Date(startedAt).toISOString(), endedAt: new Date().toISOString(), message: msg,
+  });
+  return next;
+}
+
 export async function runSite(
   config: FaktoryConfig, slug: string,
-  opts: { from?: StageName; only?: StageName; stages?: Partial<Record<StageName, Stage>> } = {},
+  opts: { from?: StageName; only?: StageName; yes?: boolean; stages?: StageMap } = {},
 ): Promise<SiteState> {
   const ctx = loadContext(config, slug);
   const stages = opts.stages ?? registry;
-  const start = opts.only ?? opts.from ?? firstIncompleteStage(ctx.state);
+  const record = recorder(ctx, opts);
+  let start = opts.only ?? opts.from ?? firstIncompleteStage(ctx.state);
   if (!start) { console.log(`Site "${slug}": all stages done.`); return ctx.state; }
   if (!opts.only && !opts.from && awaitingStage(ctx.state) === start) {
-    throw new Error(`Stage ${start} awaits approval: review the artifact, then run "faktory approve ${slug}"`);
+    if (!opts.yes) throw new Error(`Stage ${start} awaits approval: review the artifact, then run "faktory approve ${slug}"`);
+    await approveStage(ctx, start, stages, record);
+    console.log(`✔ ${start} — auto-approved (--yes)`);
+    start = firstIncompleteStage(ctx.state);
+    if (!start) { console.log(`Site "${slug}": all stages done.`); return ctx.state; }
   }
   const plan = opts.only ? [opts.only] : STAGES.slice(STAGES.indexOf(start));
   for (const name of plan) {
@@ -66,32 +99,42 @@ export async function runSite(
     const startedAt = Date.now(), startCost = ctx.state.costUsd;
     // Agent runs add their cost to ctx.state as they finish, so the stage's spend is the delta on ctx.state.
     const measure = () => ({ costUsd: round4(ctx.state.costUsd - startCost), durationMs: Date.now() - startedAt });
+    const event = (status: RunRecord["status"], m: { costUsd: number; durationMs: number }, message?: string) => record({
+      kind: "stage", stage: name, status, costUsd: m.costUsd, durationMs: m.durationMs,
+      startedAt: new Date(startedAt).toISOString(), endedAt: new Date().toISOString(), message,
+    });
+    let msg: string | undefined;
     try {
-      const msg = (await stage.run(ctx)) ?? undefined;
-      const status = stage.checkpoint ? "awaiting_approval" : "done";
-      persist(ctx, setStage(ctx.state, name, status, msg ?? undefined, measure()));
-      console.log(`${stage.checkpoint ? "⏸" : "✔"} ${name}${msg ? ` — ${msg}` : ""}`);
-      if (stage.checkpoint) { console.log(`Review the artifact, then: faktory approve ${slug} && faktory run ${slug}`); break; }
+      msg = (await stage.run(ctx)) ?? undefined;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      persist(ctx, setStage(ctx.state, name, "failed", message, measure()));
+      const m = measure();
+      persist(ctx, setStage(ctx.state, name, "failed", message, m));
+      event("failed", m, message);
       throw err;
     }
+    const status = stage.checkpoint ? "awaiting_approval" : "done";
+    const m = measure();
+    persist(ctx, setStage(ctx.state, name, status, msg, m));
+    event(status, m, msg);
+    console.log(`${stage.checkpoint ? "⏸" : "✔"} ${name}${msg ? ` — ${msg}` : ""}`);
+    if (!stage.checkpoint) continue;
+    if (opts.yes) {
+      await approveStage(ctx, name, stages, record);
+      console.log(`✔ ${name} — auto-approved (--yes)`);
+      continue;
+    }
+    console.log(`Review the artifact, then: faktory approve ${slug} && faktory run ${slug}`);
+    break;
   }
   return ctx.state;
 }
 
-export async function approveSite(config: FaktoryConfig, slug: string, opts: { stages?: Partial<Record<StageName, Stage>> } = {}): Promise<SiteState> {
+export async function approveSite(config: FaktoryConfig, slug: string, opts: { stages?: StageMap } = {}): Promise<SiteState> {
   const ctx = loadContext(config, slug);
   const waiting = awaitingStage(ctx.state);
   if (!waiting) throw new Error(`Nothing awaits approval for "${slug}"`);
-  assertBudget(config, ctx.state);
-  const stage = (opts.stages ?? registry)[waiting];
-  const prev = ctx.state.stages[waiting], startCost = ctx.state.costUsd;
-  const msg = stage?.onApprove ? await stage.onApprove(ctx) : undefined;
-  // The run's duration is kept; a re-sync at approval time is charged to the checkpoint stage.
-  const costUsd = round4((prev.costUsd ?? 0) + (ctx.state.costUsd - startCost));
-  return persist(ctx, setStage(ctx.state, waiting, "done", msg ?? "approved", { costUsd, durationMs: prev.durationMs }));
+  return approveStage(ctx, waiting, opts.stages ?? registry, recorder(ctx, {}));
 }
 
 /**
@@ -99,7 +142,7 @@ export async function approveSite(config: FaktoryConfig, slug: string, opts: { s
  * reusing each stage's own `onApprove` so the re-extraction and, for design, the preview re-render stay in one place.
  * Returns the stage names that were re-synced (empty when nothing is stale).
  */
-export async function resyncSite(config: FaktoryConfig, slug: string, opts: { stages?: Partial<Record<StageName, Stage>> } = {}): Promise<string[]> {
+export async function resyncSite(config: FaktoryConfig, slug: string, opts: { stages?: StageMap } = {}): Promise<string[]> {
   const ctx = loadContext(config, slug);
   const stages = opts.stages ?? registry;
   const resynced: string[] = [];

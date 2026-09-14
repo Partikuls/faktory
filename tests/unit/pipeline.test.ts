@@ -4,11 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadConfig } from "../../src/config.js";
 import { initSite, siteDir } from "../../src/workspace.js";
-import { readState, setStage, writeState } from "../../src/state.js";
+import { STAGES, readState, setStage, writeState, type StageName } from "../../src/state.js";
 import { runSite, approveSite, resyncSite, destroySite, loadContext, deps, registry, type Stage } from "../../src/pipeline.js";
 import { artifactPath, writeJsonArtifact, writeTextArtifact } from "../../src/artifacts.js";
 import { deps as resyncDeps } from "../../src/resync.js";
 import { addCost } from "../../src/agent.js";
+import { readRuns, deps as historyDeps } from "../../src/history.js";
 
 async function setup() {
   const config = loadConfig(mkdtempSync(join(tmpdir(), "fk-")));
@@ -16,6 +17,16 @@ async function setup() {
   return config;
 }
 const ok = (name: Stage["name"], checkpoint = false, log: string[] = []): Stage => ({ name, checkpoint, run: async () => { log.push(name); return `${name} ok`; } });
+
+/** All eight stages as stubs; spec and design are checkpoints with an onApprove that logs. */
+function allStages(log: string[], approvals: string[] = []): Partial<Record<StageName, Stage>> {
+  return Object.fromEntries(STAGES.map((name) => {
+    const checkpoint = name === "spec" || name === "design";
+    const stage: Stage = { name, checkpoint, run: async () => { log.push(name); return `${name} ok`; } };
+    if (checkpoint) stage.onApprove = async () => { approvals.push(name); return undefined; };
+    return [name, stage];
+  }));
+}
 
 describe("runSite", () => {
   it("runs stages in order, skips unregistered ones, and stops at a checkpoint", async () => {
@@ -223,5 +234,64 @@ describe("resyncSite", () => {
 describe("registry", () => {
   it("registers spec, design, provision, pages, plugins and content", () => {
     expect(Object.keys(registry)).toEqual(["spec", "design", "provision", "pages", "plugins", "content", "qa", "export"]);
+  });
+});
+
+describe("run --yes", () => {
+  it("approves both checkpoints on the way and runs every stage", async () => {
+    const config = await setup(); const log: string[] = [], approvals: string[] = [];
+    const s = await runSite(config, "pp", { yes: true, stages: allStages(log, approvals) });
+    expect(log).toEqual([...STAGES]);
+    expect(approvals).toEqual(["spec", "design"]);
+    for (const name of STAGES) expect(s.stages[name].status, name).toBe("done");
+    expect(s.stages.spec.message).toBe("approved");
+  });
+  it("approves a checkpoint that already awaits approval, then continues", async () => {
+    const config = await setup(); const log: string[] = [], approvals: string[] = [];
+    const stages = allStages(log, approvals);
+    await runSite(config, "pp", { stages });
+    expect(log).toEqual(["spec"]);
+    const s = await runSite(config, "pp", { yes: true, stages });
+    expect(approvals).toEqual(["spec", "design"]);
+    expect(log).toEqual([...STAGES]);
+    expect(s.stages.export.status).toBe("done");
+  });
+});
+
+describe("run history", () => {
+  beforeEach(() => { vi.restoreAllMocks(); vi.spyOn(historyDeps, "git").mockImplementation(() => { throw new Error("not a repo"); }); });
+  it("appends one record per stage and per approval, sharing the run id and options", async () => {
+    const config = await setup();
+    await runSite(config, "pp", { yes: true, stages: allStages([]) });
+    const runs = readRuns(siteDir(config, "pp"));
+    expect(runs).toHaveLength(10);
+    expect(runs.slice(0, 5).map((r) => `${r.kind}:${r.stage}:${r.status}`)).toEqual([
+      "stage:spec:awaiting_approval", "approve:spec:done", "stage:design:awaiting_approval", "approve:design:done", "stage:provision:done",
+    ]);
+    expect(new Set(runs.map((r) => r.runId)).size).toBe(1);
+    expect(runs[0].options).toEqual({ from: null, only: null, yes: true, maxCostUsd: 40 });
+    expect(runs[0].faktory).toEqual({ commit: null, dirty: false });
+    expect(runs[4].message).toBe("provision ok");
+  });
+  it("records a failed stage with its message", async () => {
+    const config = await setup();
+    const stages = { spec: { name: "spec", run: async () => { throw new Error("kaboom"); } } as Stage };
+    await expect(runSite(config, "pp", { stages })).rejects.toThrow("kaboom");
+    const [r] = readRuns(siteDir(config, "pp"));
+    expect(r).toMatchObject({ kind: "stage", stage: "spec", status: "failed", message: "kaboom" });
+  });
+  it("approveSite records the approval with the cost of onApprove only", async () => {
+    const config = await setup();
+    const spec: Stage = {
+      name: "spec", checkpoint: true,
+      run: async (ctx) => { ctx.state = addCost(ctx.state, 0.5); return "ok"; },
+      onApprove: async (ctx) => { ctx.state = addCost(ctx.state, 0.3); return "re-synced"; },
+    };
+    await runSite(config, "pp", { stages: { spec } });
+    await approveSite(config, "pp", { stages: { spec } });
+    const runs = readRuns(siteDir(config, "pp"));
+    expect(runs.map((r) => r.kind)).toEqual(["stage", "approve"]);
+    expect(runs[1]).toMatchObject({ stage: "spec", status: "done", costUsd: 0.3, message: "re-synced" });
+    expect(runs[1].runId).not.toBe(runs[0].runId);
   });
 });
