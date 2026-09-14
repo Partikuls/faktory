@@ -45,33 +45,60 @@ describe("buildGenerateSettings", () => {
     const one = buildGenerateSettings({ ...tokens, fonts: { heading: tokens.fonts.body, body: tokens.fonts.body } });
     expect(one.font_manager).toHaveLength(1);
   });
+  it("tags every typography rule with module core, or GeneratePress drops it from the CSS", () => {
+    for (const r of s.typography as { module: string }[]) expect(r.module).toBe("core");
+  });
+  it("forces the flexbox structure and svg icons so GP never renders in legacy mode", () => {
+    expect(s).toMatchObject({ structure: "flexbox", icons: "svg", combine_css: true, dynamic_css_cache: true });
+  });
+  it("maps every component color to a palette variable, never a hex value", () => {
+    expect(s).toMatchObject({
+      background_color: "var(--base)", content_background_color: "var(--base)", text_color: "var(--contrast)",
+      link_color: "var(--accent)", link_color_hover: "var(--contrast)",
+      header_background_color: "var(--base-3)", navigation_background_color: "var(--base-3)",
+      navigation_text_color: "var(--contrast)", navigation_text_hover_color: "var(--accent)", navigation_text_current_color: "var(--accent)",
+      subnavigation_background_color: "var(--base-3)", subnavigation_text_color: "var(--contrast)",
+      site_title_color: "var(--contrast)", site_tagline_color: "var(--contrast-2)",
+      blog_post_title_color: "var(--contrast)", blog_post_title_hover_color: "var(--contrast-2)",
+      entry_meta_text_color: "var(--contrast-2)", entry_meta_link_color: "var(--accent)",
+      form_background_color: "var(--base-3)", form_text_color: "var(--contrast)", form_border_color: "var(--contrast-3)",
+      form_button_background_color: "var(--accent)", form_button_background_color_hover: "var(--contrast)",
+      form_button_text_color: "var(--base-3)", form_button_text_color_hover: "var(--base-3)",
+      form_border_color_focus: "var(--accent)", form_background_color_focus: "var(--base-3)", form_text_color_focus: "var(--contrast)",
+      footer_background_color: "var(--contrast)",
+    });
+    const { global_colors: _palette, ...rest } = s;
+    expect(JSON.stringify(rest)).not.toMatch(/#[0-9a-f]{3,6}\b/i);
+  });
 });
 
 describe("applyTokens / applyIdentity", () => {
   beforeEach(() => vi.restoreAllMocks());
   const calls = (spy: any) => spy.mock.calls.map((c: any[]) => ({ args: (c[2] as string[]).slice(1), input: (c[3] as { input?: string } | undefined)?.input }));
-  it("merges over the existing option, writes JSON on stdin and invalidates the css cache", async () => {
+  it("stamps the GP version first, replaces the option without reading it, sets posts per page and clears the css cache", async () => {
     const spy = vi.spyOn(deps, "composeExec").mockImplementation(async (_c, _s, cmd) => {
-      if (cmd.join(" ").startsWith("wp option get generate_settings")) return { stdout: JSON.stringify({ icons: "font", container_width: "1200" }), stderr: "", code: 0 };
+      if (cmd.join(" ") === "wp theme get generatepress --field=version") return { stdout: "3.6.1\n", stderr: "", code: 0 };
       return { stdout: "Success", stderr: "", code: 0 };
     });
     await applyTokens(ctx, tokens);
     const c = calls(spy);
-    const upd = c.find((x: any) => x.args.join(" ").startsWith("option update generate_settings"))!;
-    expect(upd.args).toEqual(["option", "update", "generate_settings", "--format=json"]);
-    const written = JSON.parse(upd.input!);
-    expect(written.icons).toBe("font");
-    expect(written.container_width).toBe("1140");
-    expect(c.at(-1)!.args).toEqual(["option", "update", "generate_dynamic_css_output", ""]);
+    expect(c.map((x: any) => x.args.join(" "))).toEqual([
+      "theme get generatepress --field=version",
+      "option update generate_db_version 3.6.1",
+      "option update generate_settings --format=json",
+      "option update posts_per_page 9",
+      "option update generate_dynamic_css_output ",
+    ]);
+    const written = JSON.parse(c[2].input!);
+    expect(written).toEqual(buildGenerateSettings(tokens));
+    expect(written.icons).toBe("svg");
   });
-  it("starts from an empty object when the option does not exist yet", async () => {
-    const spy = vi.spyOn(deps, "composeExec").mockImplementation(async (_c, _s, cmd) => {
-      if (cmd.join(" ").startsWith("wp option get generate_settings")) return { stdout: "", stderr: "Error: Could not get 'generate_settings' option. Does it exist?", code: 1 };
+  it("refuses to write settings when the GeneratePress version cannot be read", async () => {
+    vi.spyOn(deps, "composeExec").mockImplementation(async (_c, _s, cmd) => {
+      if (cmd.join(" ") === "wp theme get generatepress --field=version") return { stdout: "", stderr: "", code: 0 };
       return { stdout: "Success", stderr: "", code: 0 };
     });
-    await applyTokens(ctx, tokens);
-    const upd = calls(spy).find((x: any) => x.args.join(" ").startsWith("option update generate_settings"))!;
-    expect(JSON.parse(upd.input!).global_colors).toHaveLength(8);
+    await expect(applyTokens(ctx, tokens)).rejects.toThrow(/GeneratePress version/);
   });
   it("applies the site name and tagline", async () => {
     const spy = vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "Success", stderr: "", code: 0 });

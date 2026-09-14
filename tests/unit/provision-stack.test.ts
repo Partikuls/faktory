@@ -6,7 +6,7 @@ import { loadConfig } from "../../src/config.js";
 import { createState } from "../../src/state.js";
 import type { SiteContext } from "../../src/docker.js";
 import { deps } from "../../src/wp.js";
-import { findVendorZip, installStack } from "../../src/provision/stack.js";
+import { findVendorZip, installStack, installLanguagePacks } from "../../src/provision/stack.js";
 
 function ctxWithVendor(files: string[]): SiteContext {
   const vendorDir = mkdtempSync(join(tmpdir(), "vendor-"));
@@ -72,5 +72,25 @@ describe("installStack", () => {
     expect(c).toContain("plugin activate gp-premium");
     expect(c.some((x) => x.startsWith("plugin install"))).toBe(false);
     expect(r.missingVendor).toEqual(["generateblocks-pro", "gravityforms", "gravityformscli"]);
+  });
+});
+
+describe("installLanguagePacks", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  it("installs fr_FR for GeneratePress and the wordpress.org plugins", async () => {
+    const ctx = ctxWithVendor([]);
+    const spy = vi.spyOn(deps, "composeExec").mockResolvedValue({ stdout: "Success", stderr: "", code: 0 });
+    expect(await installLanguagePacks(ctx)).toEqual([]);
+    expect(spy.mock.calls.map((c) => (c[2] as string[]).slice(1).join(" "))).toEqual([
+      "language theme install generatepress fr_FR",
+      "language plugin install generateblocks wordpress-seo fr_FR",
+    ]);
+  });
+  it("returns a warning instead of throwing when the translation server fails", async () => {
+    const ctx = ctxWithVendor([]);
+    vi.spyOn(deps, "composeExec")
+      .mockResolvedValueOnce({ stdout: "", stderr: "Warning: x\nError: Could not reach translate.wordpress.org", code: 1 })
+      .mockResolvedValueOnce({ stdout: "Success", stderr: "", code: 0 });
+    expect(await installLanguagePacks(ctx)).toEqual(["language theme install generatepress fr_FR: Error: Could not reach translate.wordpress.org"]);
   });
 });

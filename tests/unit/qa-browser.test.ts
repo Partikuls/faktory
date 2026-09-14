@@ -8,7 +8,7 @@ import { chromiumInstalled, launchBrowser, linkCandidates, checkLinks, checkPage
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 const html = (origin: string, extraOrigin: string) => `<!doctype html><html><head><style>.gb-element-ok{padding:1px}</style></head><body>
-<h1>Un</h1><h1>Deux</h1>
+<h1>Un</h1><h1>Deux</h1><p class="byline">by admin — Read more</p><p>Baby by-pass</p><p class="comments">Leave a comment</p>
 <div class="gb-element-ok gb-text-missing gb-container-x1 other">bloc</div>
 <style>.gb-container-x1{margin:0}</style>
 <img src="/missing.png" alt="cassée"><img src="/ok.png"><img src="${extraOrigin}/ext.png" alt="ext">
@@ -87,6 +87,7 @@ describe.skipIf(!chromiumInstalled())("checkPage against a local page (chromium)
       expect(check.missingAlt).toBe(1);
       expect(check.unstyledBlocks).toEqual(["gb-text-missing"]);
       expect(check.h1Count).toBe(2);
+      expect(check.untranslated).toEqual(["by", "Read more", "Leave a comment"]);
       expect(check.mobileOverflow).toBe(true);
       expect(check.checkedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       expect(tiles.desktop).toBeGreaterThanOrEqual(1);

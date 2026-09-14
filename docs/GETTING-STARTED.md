@@ -39,7 +39,7 @@ docker/vendor/gravityforms_3.1.1.2.zip
 docker/vendor/gravityformscli_1.7.zip
 ```
 
-Provision still runs without them, but the site loses pieces. Without GP Premium there is no footer. Without Gravity Forms and its CLI add-on, the content stage cannot create the forms.
+Provision still runs without them, but the site loses pieces. Without GP Premium there is no footer and no blog layout. Without Gravity Forms and its CLI add-on, the content stage cannot create the forms.
 
 Check everything:
 
@@ -82,7 +82,7 @@ Open `sites/my-site/SITE-SPEC.md` and review it: sitemap, page sections, custom 
 npm run faktory -- approve my-site
 ```
 
-If you edited the Markdown, `approve` re-extracts `site-spec.json` from it.
+If you edited the Markdown, `approve` re-extracts `site-spec.json` from it. If the brief lacks facts such as the phone number, address or opening hours, the file starts with « Informations à compléter »; replace each `[à confirmer]` before approving, or the site will show the gaps. `approve` warns but does not block.
 
 ## 6. Generate and approve the design
 
@@ -110,7 +110,7 @@ There are no more checkpoints. This single command runs the remaining stages in 
 
 | Stage | What it does |
 |---|---|
-| provision | Starts the Docker stack, installs WordPress in French, the theme and plugins, creates the pages, menu and footer, applies the design tokens |
+| provision | Starts the Docker stack, installs WordPress in French with the theme, plugins and their French translations, creates the pages and menu, applies the design tokens to the theme and the forms, and adds the footer and the blog layout |
 | plugins | One agent per custom feature writes, checks, activates and seeds a WordPress plugin |
 | pages | One agent per page builds it with GenerateBlocks, home first, then three in parallel |
 | content | Creates the Gravity Forms forms, sets the Yoast SEO fields, writes and publishes the articles |

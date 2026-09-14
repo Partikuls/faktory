@@ -31,4 +31,17 @@ describe("renderSiteSpecMarkdown", () => {
   it("is deterministic", () => {
     expect(renderSiteSpecMarkdown(spec)).toBe(md);
   });
+  it("lists the brief gaps right after the notice, one bullet per label", () => {
+    const withHours = parseSiteSpec({ ...spec, identity: { ...spec.identity, contact: { ...spec.identity.contact, hours: ["Lundi : [à confirmer]", "Mardi : [à confirmer]"] } } });
+    const out = renderSiteSpecMarkdown(withHours);
+    const section = out.indexOf("## Informations à compléter");
+    expect(section).toBeGreaterThan(out.indexOf("faktory approve"));
+    expect(section).toBeLessThan(out.indexOf("## Identité"));
+    expect(out).toContain("- Téléphone\n- Adresse\n- Horaires (2 valeurs)\n");
+    expect(out).toContain("Remplacez chaque `[à confirmer]` dans ce fichier puis `faktory approve`.");
+  });
+  it("omits the gaps section for a complete spec", () => {
+    const complete = parseSiteSpec({ ...spec, identity: { ...spec.identity, contact: { ...spec.identity.contact, phone: "02 40 00 00 00", address: "12 rue du Four, 44100 Nantes" } } });
+    expect(renderSiteSpecMarkdown(complete)).not.toContain("Informations à compléter");
+  });
 });

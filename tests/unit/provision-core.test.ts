@@ -33,6 +33,9 @@ describe("installCore", () => {
     expect(c).toContain("language core install fr_FR --activate");
     expect(c).toContain("rewrite structure /%postname%/");
     expect(c).toContain("option update timezone_string Europe/Paris");
+    expect(c).toContain("option update date_format j F Y");
+    expect(c).toContain("option update time_format G\\hi");
+    expect(c).toContain("option update start_of_week 1");
     expect(c).toContain("post delete 1 2 --force");
     expect(c).toContain("plugin uninstall akismet hello --deactivate");
   });
@@ -45,5 +48,8 @@ describe("installCore", () => {
     expect(c.some((x) => x.startsWith("core install"))).toBe(false);
     expect(c.some((x) => x.startsWith("post delete"))).toBe(false);
     expect(c).toContain("option update timezone_string Europe/Paris");
+    expect(c).toContain("option update date_format j F Y");
+    expect(c).toContain("option update time_format G\\hi");
+    expect(c).toContain("option update start_of_week 1");
   });
 });

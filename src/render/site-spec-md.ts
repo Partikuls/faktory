@@ -1,4 +1,5 @@
 import type { SiteSpec } from "../schemas/site-spec.js";
+import { findSpecGaps } from "../spec-gaps.js";
 
 const NOTICE = `> Généré depuis \`site-spec.json\`. Modifiez librement ce fichier (titres, sections, champs, SEO…).
 > À \`faktory approve\`, si ce fichier est plus récent que \`site-spec.json\`, le JSON est re-synchronisé automatiquement.`;
@@ -12,6 +13,13 @@ export function renderSiteSpecMarkdown(spec: SiteSpec): string {
   const { identity: id } = spec;
   const out: string[] = [];
   out.push(`# SITE-SPEC — ${id.name}`, "", NOTICE, "");
+
+  const gaps = findSpecGaps(spec);
+  if (gaps.length) {
+    out.push("## Informations à compléter", "");
+    for (const g of gaps) out.push(`- ${g.label}${g.paths.length > 1 ? ` (${g.paths.length} valeurs)` : ""}`);
+    out.push("", "Remplacez chaque `[à confirmer]` dans ce fichier puis `faktory approve`.", "");
+  }
 
   out.push("## Identité", "");
   out.push(`- Nom : ${id.name}`, `- Secteur : ${id.sector}`, `- Accroche : ${id.tagline}`, `- Ton : ${id.tone}`, `- Langue : ${id.language}`);

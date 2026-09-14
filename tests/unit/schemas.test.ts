@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { toJsonSchema } from "../../src/schemas/json-schema.js";
 import { SiteSpecShape, parseSiteSpec } from "../../src/schemas/site-spec.js";
-import { DesignTokensShape, parseDesignTokens } from "../../src/schemas/design-tokens.js";
+import { DesignTokensShape, parseDesignTokens, GoogleFont } from "../../src/schemas/design-tokens.js";
 
 const spec = JSON.parse(readFileSync("fixtures/specs/boulangerie.site-spec.json", "utf8"));
 const tokens = JSON.parse(readFileSync("fixtures/specs/boulangerie.design-tokens.json", "utf8"));
@@ -67,6 +67,10 @@ describe("DesignTokens", () => {
   it("rejects a non-hex color and a descending spacing ramp", () => {
     expect(() => parseDesignTokens({ ...tokens, palette: { ...tokens.palette, accent: "sage" } })).toThrow();
     expect(() => parseDesignTokens({ ...tokens, spacing: [64, 8, 4, 2, 1, 0] })).toThrow(/ascending/);
+  });
+  it("rejects a Google Fonts family with characters other than letters, digits and spaces", () => {
+    expect(() => GoogleFont.parse({ ...tokens.fonts.body, family: "Fraunces}" })).toThrow(/letters, digits and spaces/);
+    expect(() => parseDesignTokens({ ...tokens, fonts: { ...tokens.fonts, heading: { ...tokens.fonts.heading, family: "Fraunces}" } } })).toThrow(/letters, digits and spaces/);
   });
   it("exposes a JSON schema with the palette keys", () => {
     const s = toJsonSchema(DesignTokensShape) as { properties: { palette: { properties: Record<string, unknown> } } };

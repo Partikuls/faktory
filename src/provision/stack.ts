@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import type { SiteContext } from "../docker.js";
-import { wpOk, wpJson } from "../wp.js";
+import { runWp, wpOk, wpJson } from "../wp.js";
 
 export const WPORG_PLUGINS = ["generateblocks", "wordpress-seo"] as const;
 export const VENDOR_PLUGINS = [
@@ -52,4 +52,20 @@ export async function installStack(ctx: SiteContext): Promise<{ installed: strin
     await wpOk(ctx, ["theme", "activate", childSlug]);
   }
   return { installed, missingVendor };
+}
+
+/** wordpress.org plugins with French packs; the commercial ones (GP Premium, GF) ship their own. */
+export const LANGUAGE_PLUGINS = ["generateblocks", "wordpress-seo"] as const;
+
+/**
+ * fr_FR packs for the theme and plugins (GeneratePress's own strings, e.g. the "by" of post meta).
+ * Best-effort: a translation server failure must not block a run, it is reported in the provision summary.
+ */
+export async function installLanguagePacks(ctx: SiteContext): Promise<string[]> {
+  const warnings: string[] = [];
+  for (const args of [["language", "theme", "install", "generatepress", "fr_FR"], ["language", "plugin", "install", ...LANGUAGE_PLUGINS, "fr_FR"]]) {
+    const r = await runWp(ctx, args);
+    if (r.code !== 0) warnings.push(`${args.join(" ")}: ${(r.stderr || r.stdout).trim().split("\n").at(-1)}`);
+  }
+  return warnings;
 }

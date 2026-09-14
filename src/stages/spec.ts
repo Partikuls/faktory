@@ -1,11 +1,12 @@
 import type { Stage } from "../pipeline.js";
 import { runAgent, runValidated } from "../agent.js";
-import { writeJsonArtifact, writeTextArtifact } from "../artifacts.js";
+import { hasArtifact, readJsonArtifact, writeJsonArtifact, writeTextArtifact } from "../artifacts.js";
 import { loadPrompt } from "../prompts.js";
 import { toJsonSchema } from "../schemas/json-schema.js";
 import { SiteSpecShape, parseSiteSpec } from "../schemas/site-spec.js";
 import { renderSiteSpecMarkdown } from "../render/site-spec-md.js";
 import { resyncFromMarkdown, SPEC_RESYNC } from "../resync.js";
+import { findSpecGaps, gapWarning } from "../spec-gaps.js";
 
 export const deps = { runAgent };
 
@@ -24,10 +25,16 @@ export const specStage: Stage = {
     const spec = r.value;
     writeTextArtifact(ctx, "siteSpecMd", renderSiteSpecMarkdown(spec));
     writeJsonArtifact(ctx, "siteSpecJson", spec); // written last so the JSON is never older than the markdown
-    return `SITE-SPEC.md written: ${spec.sitemap.length} pages, ${spec.features.length} feature${spec.features.length === 1 ? "" : "s"}, ${spec.forms.length} forms — $${r.costUsd.toFixed(2)}`;
+    const gaps = findSpecGaps(spec).length;
+    const gapPart = gaps ? `, ${gaps} information${gaps > 1 ? "s" : ""} à compléter` : "";
+    return `SITE-SPEC.md written: ${spec.sitemap.length} pages, ${spec.features.length} feature${spec.features.length === 1 ? "" : "s"}, ${spec.forms.length} forms${gapPart} — $${r.costUsd.toFixed(2)}`;
   },
   async onApprove(ctx) {
     const s = await resyncFromMarkdown(ctx, SPEC_RESYNC);
+    // A spec approved without site-spec.json (stub stages in pipeline tests) has nothing to scan.
+    const spec = s ?? (hasArtifact(ctx, "siteSpecJson") ? readJsonArtifact(ctx, "siteSpecJson", parseSiteSpec) : undefined);
+    const gaps = spec ? findSpecGaps(spec) : [];
+    if (gaps.length) console.warn(gapWarning(gaps));
     return s ? `approved; site-spec.json re-synced from edited SITE-SPEC.md (${s.sitemap.length} pages)` : undefined;
   },
 };

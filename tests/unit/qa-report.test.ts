@@ -20,6 +20,7 @@ describe("renderQaReport", () => {
     expect(md).toContain("| Statut HTTP | 200 |");
     expect(md).toContain("| Erreurs console | 0 |");
     expect(md).toContain("| Blocs GenerateBlocks sans CSS | 0 |");
+    expect(md).toContain("| Textes non traduits | 0 |");
     expect(md).toContain("| Débordement mobile | non |");
     expect(md).toContain("Tours : 1");
     expect(md).toContain("- [corrigé] (mineur) section form — bouton sans focus-visible");

@@ -14,6 +14,9 @@ export async function installCore(ctx: SiteContext, opts: { title: string }): Pr
   await wpOk(ctx, ["language", "core", "install", "fr_FR", "--activate"]);
   await wpOk(ctx, ["rewrite", "structure", "/%postname%/"]);
   await wpOk(ctx, ["option", "update", "timezone_string", "Europe/Paris"]);
+  await wpOk(ctx, ["option", "update", "date_format", "j F Y"]);
+  await wpOk(ctx, ["option", "update", "time_format", "G\\hi"]);
+  await wpOk(ctx, ["option", "update", "start_of_week", "1"]);
   await wpOk(ctx, ["option", "update", "blogdescription", ""]);
   if (!installed) {
     const ids = await wpJson<number[]>(ctx, ["post", "list", "--post_type=post,page", "--field=ID"]);

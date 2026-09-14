@@ -137,6 +137,7 @@ export async function checkPage(
     const check: PageCheck = {
       url, status, consoleErrors, pageErrors, failedRequests, brokenLinks,
       brokenImages: audit.brokenImages, missingAlt: audit.missingAlt, unstyledBlocks: audit.unstyledBlocks, h1Count: audit.h1Count,
+      untranslated: audit.untranslated,
       mobileOverflow, checkedAt: new Date().toISOString(),
     };
     return { check, tiles: { desktop, mobile } };

@@ -32,7 +32,7 @@ describe("spec stage", () => {
     expect(hasArtifact(c, "siteSpecJson")).toBe(true);
     expect(readFileSync(artifactPath(c, "siteSpecMd"), "utf8")).toContain("# SITE-SPEC — Maison Rivet");
     expect(readJsonArtifact(c, "siteSpecJson", parseSiteSpec).sitemap).toHaveLength(6);
-    expect(msg).toMatch(/SITE-SPEC.md.*6 pages.*1 feature.*2 forms.*\$0.42/);
+    expect(msg).toMatch(/SITE-SPEC.md.*6 pages.*1 feature.*2 forms, 2 informations à compléter — \$0.42/);
   });
   it("fails loudly when the structured output is invalid", async () => {
     const c = await ctx();
@@ -62,5 +62,19 @@ describe("spec stage", () => {
     expect(run.mock.calls[1][1].resume).toBe("sess-1");
     expect(run.mock.calls[1][1].prompt).toMatch(/exactly one/);
     expect(msg).toMatch(/\$0\.50/);
+  });
+  it("onApprove warns about brief gaps without blocking", async () => {
+    const c = await ctx();
+    vi.spyOn(deps, "runAgent").mockResolvedValue({ text: "", transcript: "", structured: fixture, costUsd: 0.4, numTurns: 3 });
+    await specStage.run(c);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await specStage.onApprove!(c)).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith("⚠ 2 informations à compléter dans SITE-SPEC.md (Téléphone, Adresse) — le site affichera des manques");
+  });
+  it("onApprove without site-spec.json neither warns nor throws", async () => {
+    const c = await ctx();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await specStage.onApprove!(c)).toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
   });
 });
