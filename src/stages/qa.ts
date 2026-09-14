@@ -148,6 +148,7 @@ export const qaStage: Stage = {
     if (failed.length) throw new Error(`${failed.length} url(s) failed: ${failed.join(", ")} — fix the site and re-run: faktory run ${ctx.slug} --only qa`);
 
     const t = report.totals, reused = pages.filter((p) => p.reused).length;
-    return `qa: ${t.urls} urls checked; ${t.reviewed} reviewed (${t.ok} ok, ${t.fixed} fixed, ${t.needsHuman} needs human${reused ? `, ${reused} reused` : ""}); ${t.remainingIssues} remaining issue${t.remainingIssues === 1 ? "" : "s"} — $${report.costUsd.toFixed(2)}`;
+    const formsFailed = pages.reduce((n, p) => n + p.check.formSubmissions.filter((f) => !f.ok).length, 0);
+    return `qa: ${t.urls} urls checked; ${t.reviewed} reviewed (${t.ok} ok, ${t.fixed} fixed, ${t.needsHuman} needs human${reused ? `, ${reused} reused` : ""}); ${t.remainingIssues} remaining issue${t.remainingIssues === 1 ? "" : "s"}${formsFailed ? `; ${formsFailed} form${formsFailed === 1 ? "" : "s"} failed` : ""} — $${report.costUsd.toFixed(2)}`;
   },
 };

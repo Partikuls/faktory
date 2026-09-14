@@ -250,7 +250,8 @@ describe("qa stage", () => {
     const submit = vi.spyOn(deps, "submitForm").mockImplementation(async (_b, _c, url, formId, gfId) => ({
       formId, gfId, url, ok: formId === "contact", ...(formId === "contact" ? {} : { error: "aucune entrée créée" }), checkedAt: "2026-09-14T00:00:00.000Z",
     }));
-    await qaStage.run(c);
+    const msg = await qaStage.run(c);
+    expect(msg).toMatch(/; 0 remaining issues; 1 form failed — \$/);
     expect(submit.mock.calls.map((k: any) => [k[3], k[4], new URL(k[2]).pathname])).toEqual([["devis_evenement", 1, "/commandes-evenements/"], ["contact", 2, "/contact/"]]);
     expect(s.close).toHaveBeenCalledTimes(1);
     const report = parseQaReport(JSON.parse(readFileSync(qaReportJsonPath(c), "utf8")));
