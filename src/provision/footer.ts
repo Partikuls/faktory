@@ -3,6 +3,7 @@ import { wpOk, wpJson } from "../wp.js";
 import { gbBuild } from "../gb.js";
 import type { SiteSpec } from "../schemas/site-spec.js";
 import type { DesignTokens } from "../schemas/design-tokens.js";
+import { isPlaceholder } from "../spec-gaps.js";
 
 export const deps = { gbBuild };
 export const FOOTER_ELEMENT_SLUG = "faktory-footer";
@@ -20,9 +21,6 @@ function link(href: string, label: string): Node {
 function columnTitle(label: string, step: (i: number) => number): Node {
   return text("p", label, { fontSize: "13px", letterSpacing: "0.08em", textTransform: "uppercase", opacity: "0.6", marginBottom: `${step(3)}px` });
 }
-
-/** Values the spec author left unfilled (e.g. `"[à confirmer]"`), or empty — never render these. */
-const isPlaceholder = (v?: string): boolean => !v || /à confirmer/i.test(v);
 
 const ESCAPE: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ESCAPE[c]!);
