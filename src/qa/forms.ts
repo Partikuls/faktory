@@ -92,6 +92,6 @@ export async function submitForm(
     if (still.code === 0) return done(problem ?? `entrée #${id} non supprimée`);
     return done(problem);
   } catch (err) {
-    return done((err instanceof Error ? err.message : String(err)).split("\n")[0].slice(0, 300));
+    return done(`erreur du navigateur : ${(err instanceof Error ? err.message : String(err)).split("\n")[0].slice(0, 280)}`);
   }
 }

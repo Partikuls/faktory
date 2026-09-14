@@ -149,4 +149,15 @@ describe("submitForm", () => {
     expect(result).toMatchObject({ ok: false, error: "pas de confirmation (« Champ requis »)" });
     expect(calls.some((a) => a[2] === "delete" && a[3] === "11")).toBe(true);
   });
+
+  it("prefixes a browser error in French", async () => {
+    const browser = fakeBrowser();
+    const context = await browser.newContext();
+    const page = await context.newPage() as unknown as { fill: () => Promise<void> };
+    page.fill = async () => { throw new Error("page.fill: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator"); };
+    (browser as unknown as { newContext: () => Promise<unknown> }).newContext = async () => ({ newPage: async () => page, close: async () => {} });
+    fakeWp({ ids: { stdout: "", code: 0 }, entries: {} });
+    const result = await submitForm(browser, {} as SiteContext, "http://localhost:8197/contact/", "contact", 2);
+    expect(result).toMatchObject({ ok: false, error: "erreur du navigateur : page.fill: Timeout 30000ms exceeded." });
+  });
 });
