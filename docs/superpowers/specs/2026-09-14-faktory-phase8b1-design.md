@@ -143,7 +143,7 @@ Pas de SMTP dans la stack : `wp_mail` échoue en silence pour la notification ad
 ## B9 — Rafraîchissement des titres de page
 
 - `ensurePages` lit aussi `post_title`. Pour une page existante dont le titre diffère de celui de la spec : `wp post update <id> --post_title=<titre>` et `  ↻ title /<slug>/: "<ancien>" → "<nouveau>"`.
-- Toutes les étapes qui appellent `ensurePages` (provision, pages, content, qa) remettent donc les titres à jour. Les éléments du menu qui pointent vers ces pages suivent, WordPress prenant le titre de la page tant qu'aucun libellé personnalisé n'est saisi.
+- Toutes les étapes qui appellent `ensurePages` (provision, plugins, pages, content, qa) remettent donc les titres à jour. Les éléments du menu qui pointent vers ces pages suivent, WordPress prenant le titre de la page tant qu'aucun libellé personnalisé n'est saisi.
 - Changer un slug reste hors périmètre : `ensurePages` créerait une nouvelle page.
 
 ### Tests
@@ -215,4 +215,52 @@ Pas de SMTP dans la stack : `wp_mail` échoue en silence pour la notification ad
 
 ## Écarts et mesures
 
-À compléter après exécution.
+Exécution du plan `docs/superpowers/plans/2026-09-14-faktory-phase8b1-guardrails.md` sur la branche `faktory/phase8b1` : 9 tâches revues une à une, une revue finale de la branche et une vague de corrections, puis un run neuf sans surveillance et un contrôle sous plafond de budget.
+
+### Écarts au design
+
+1. **Totaux QA inchangés.** Le document dit qu'un échec de soumission compte « comme les autres défauts automatiques ». En code, `computeTotals` ne compte que les `left` de l'agent ; les défauts automatiques restent visibles dans chaque section de page (« Défauts automatiques : … ») et son tableau de contrôles. Les soumissions suivent cette règle existante : une ligne dans `checkIssues` et une ligne `| Formulaires soumis | n/m |` (seulement sur les pages qui portent un formulaire testé), sans toucher aux totaux.
+2. **Comparaison des titres avec entités décodées.** WordPress stocke « Commandes & événements » en « Commandes &amp; événements » ; sans décodage, chaque appel à `ensurePages` aurait réécrit ce titre.
+3. **`stageTotals` se replie par étape**, pas seulement quand `runs.jsonl` est absent : une étape sans enregistrement `done`/`awaiting_approval` dans le journal reprend les mesures de `faktory.json` quand cette étape est `done`.
+4. **Les enregistrements d'approbation** portent la durée d'`onApprove` lui-même ; `stageTotals` n'ajoute que leur coût au checkpoint.
+5. **`withBudgetSlots` refuse de s'imbriquer** (lève une erreur) : aucune étape n'a besoin de groupes imbriqués, et un groupe imbriqué casserait l'arithmétique des réservations.
+6. **L'avertissement de régénération est affiché avec `console.warn`** même avec `--yes`, pour que le log du run sans surveillance montre ce qui a été écrasé.
+7. **`agentQueryOptions` prend le plafond comme 4ᵉ argument obligatoire** (`maxBudgetUsd: number`).
+8. **Recherche d'entrée Gravity Forms** (trouvé à l'exécution) : `wp gf entry list --format=json` nomme ses colonnes d'après les libellés traduits (« ID de l'entrée »), et `wp gf entry delete` sort en code 0 même quand rien n'est supprimé. L'entrée de test est donc trouvée avec `wp gf entry list <gfId> --format=ids` puis `wp gf entry get <id> --raw --format=json` (recherche du marqueur), supprimée avec `--force`, et la suppression confirmée par un `wp gf entry get <id>` en échec. Nouvelles erreurs : `liste des entrées illisible (#<gfId>)`, et toute erreur imprévue est préfixée `erreur du navigateur : `.
+9. **Régénérer `spec` nomme aussi les fichiers de `design`** : une ligne d'avertissement supplémentaire `Seront régénérés ensuite par design : …`, car `design` régénère toujours ses fichiers.
+10. **La ligne de résumé de l'étape `qa`** ajoute `; N form(s) failed` quand une soumission a échoué (les totaux restent inchangés).
+11. **Formulation de B9.** Les titres sont rafraîchis par cinq étapes (`provision`, `plugins`, `pages`, `content`, `qa`), pas quatre — la puce de B9 de ce document qui en listait quatre est corrigée en conséquence.
+12. **Non traité.**
+    - Après `Cost budget reached`, la remise en attente des étapes suivantes (B8) peut déjà être persistée.
+    - Un `onApprove` qui lève n'écrit aucun enregistrement d'historique.
+    - Les entités HTML hexadécimales (`&#x27;`) ne sont pas décodées.
+    - Les entrées laissées par un run tué ne sont pas balayées.
+    - Le test d'intégration Docker de `content` a été tué par un manque de mémoire de l'hôte pendant la vérification et n'a pas été relancé (le changement dans `content` est uniquement l'enveloppe `withBudgetSlots`, testée en unitaire) ; Docker `qa` 3/3 et `provision` 2/2 sont passés.
+
+### Run neuf `boulangerie-8b`
+
+`init` depuis `fixtures/briefs/boulangerie.md` sur le port 8103, puis `faktory run boulangerie-8b --yes` lancé détaché (nohup + log), commit `0f08d30`, arbre propre, sans aucune approbation manuelle.
+
+| Étape | 8b1 | 8a |
+|---|---|---|
+| spec | 0,39 $ · 1 min 04 s | 0,39 $ · 1 min 05 s |
+| design | 1,06 $ · 3 min 23 s | 1,06 $ · 3 min 18 s |
+| provision | 0,00 $ · 2 min 15 s | 0,00 $ · 1 min 59 s |
+| plugins | 1,46 $ · 4 min 07 s | 1,50 $ · 4 min 03 s |
+| pages | 5,68 $ · 8 min 48 s | 5,62 $ · 8 min 33 s |
+| content | 1,84 $ · 3 min 11 s | 1,90 $ · 2 min 49 s |
+| qa | 0,00 $ · 50 s | 5,38 $ · 4 min 48 s |
+| export | 0,00 $ · 9 s | 0,00 $ · 11 s |
+| **total** | **10,44 $ · 23 min 47 s** | **15,84 $ · 26 min 47 s** |
+
+Résultats :
+
+- Les deux checkpoints (`spec`, `design`) auto-approuvés avec l'avertissement des manques (10 informations à compléter) ; aucune ligne `error_max_budget_usd` ni `Cost budget reached` dans `run.log`.
+- `runs.jsonl` compte 10 lignes (8 étapes, 2 approbations).
+- Les deux formulaires soumis : `devis_evenement` (#1) sur `/commandes-evenements/` et `contact` (#2) sur `/contact/`, tous deux `ok: true` ; 0 entrée restante dans Gravity Forms après le run (`wp gf entry list 1/2 --format=ids` → sortie vide).
+- QA : 11 URL contrôlées, 5 pages relues, 16 défauts restants, tous `needs_human`. Ils viennent des manques du brief (horaires, téléphone, adresse, noms de l'équipe, lien d'itinéraire) et des images de remplacement (lot 8b2), plus les points Gravity Forms (bouton, mention « (Nécessaire) ») déjà relevés en 8a.
+- Coût de `qa` : 2,31 $ contre 5,38 $ en 8a, chaque page s'étant arrêtée après le premier tour (arbre inchangé, donc pas de second tour) — sans lien avec un changement de 8b1.
+
+Contrôle sous plafond de budget : `faktory run boulangerie-8b --only qa --max-cost 13.75` avec 12,747 $ déjà dépensés — les 5 revues sont toutes réutilisées (arbres inchangés), 0,00 $, les deux formulaires resoumis, le plafond n'est jamais atteint. L'invariant du registre de budget n'est donc couvert ici que par `tests/unit/budget.test.ts` et `tests/unit/agent-budget.test.ts`.
+
+Observation hors périmètre : les agents de revue QA signalent leur écriture dans `pages/<slug>.gb.json` comme refusée à chaque run depuis la phase 7 (0 correction). À investiguer en 8b2.
