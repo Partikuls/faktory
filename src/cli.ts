@@ -14,7 +14,8 @@ import { findVendorZip, VENDOR_PLUGINS } from "./provision/stack.js";
 import { TOOL_WP } from "./tools/server.js";
 import { phpstanBin } from "./php.js";
 import { chromiumInstalled } from "./qa/browser.js";
-import { renderStatus } from "./status.js";
+import { renderStatus, renderHistory, renderCompare } from "./status.js";
+import { readRuns, stageTotals } from "./history.js";
 
 function asStage(v: string | undefined): StageName | undefined {
   if (v === undefined) return undefined;
@@ -44,8 +45,9 @@ function withMaxCost(maxCost?: string) {
 program.command("run <slug>").description("Run the pipeline from the first incomplete stage")
   .option("--from <stage>").option("--only <stage>")
   .option("--max-cost <usd>", "Stop before any stage once the cumulated cost reaches this amount (default: faktory.config.json maxCostUsd)")
-  .action(async (slug: string, opts: { from?: string; only?: string; maxCost?: string }) => {
-    await runSite(withMaxCost(opts.maxCost), slug, { from: asStage(opts.from), only: asStage(opts.only) });
+  .option("--yes", "Approve spec and design automatically, and confirm the regeneration of a checkpoint (unattended runs)")
+  .action(async (slug: string, opts: { from?: string; only?: string; maxCost?: string; yes?: boolean }) => {
+    await runSite(withMaxCost(opts.maxCost), slug, { from: asStage(opts.from), only: asStage(opts.only), yes: opts.yes });
   });
 program.command("provision <slug>").description("Alias for run --only provision")
   .action(async (slug: string) => { await runSite(loadConfig(), slug, { only: "provision" }); });
@@ -61,7 +63,18 @@ program.command("resync <slug>").description("Re-sync any checkpoint JSON whose 
     console.log(resynced.length ? `Re-synced: ${resynced.join(", ")}` : "Nothing to re-sync.");
   });
 program.command("status <slug>").description("Show stage status, cost and duration of a site (no LLM, no Docker)")
-  .action(async (slug: string) => { console.log(renderStatus(loadContext(loadConfig(), slug).state)); });
+  .option("--history", "Also list every recorded stage run and approval (runs.jsonl)")
+  .action(async (slug: string, opts: { history?: boolean }) => {
+    const ctx = loadContext(loadConfig(), slug);
+    console.log(renderStatus(ctx.state));
+    if (opts.history) console.log(`\n${renderHistory(readRuns(ctx.siteDir))}`);
+  });
+program.command("compare <slugs...>").description("Compare the cost and duration of each stage across sites (no LLM, no Docker)")
+  .action(async (slugs: string[]) => {
+    if (slugs.length < 2) throw new Error("compare needs at least two sites");
+    const config = loadConfig();
+    console.log(renderCompare(slugs.map((slug) => ({ slug, totals: stageTotals(loadContext(config, slug).siteDir) }))));
+  });
 program.command("destroy <slug>").description("Stop containers, drop volumes, delete workspace")
   .option("--yes", "Skip confirmation")
   .option("--force", "Delete the workspace even if docker compose down fails")
