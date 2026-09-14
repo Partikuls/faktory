@@ -4,7 +4,7 @@ export type InPageResult = { unstyledBlocks: string[]; brokenImages: string[]; m
 export const GB_CLASS_RE = /^gb-(element|text|media|container|grid|shape|looper|query)-[a-z0-9]+$/;
 
 /** English strings WordPress/GeneratePress print when a French language pack is missing (inlined in inPageAudit). */
-export const UNTRANSLATED = ["by", "Read more", "Leave a Comment", "Posted in"];
+export const UNTRANSLATED = ["by", "Read more", "Leave a Comment", "Leave a comment", "Posted in"];
 
 /**
  * Runs INSIDE the page via `page.evaluate(inPageAudit)`: Playwright serializes the function source, so it must
@@ -21,7 +21,7 @@ export function inPageAudit(): InPageResult {
   const missingAlt = imgs.filter((i) => !i.hasAttribute("alt")).length;
   const h1Count = document.querySelectorAll("h1").length;
   const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map((a) => a.href);
-  const words = ["by", "Read more", "Leave a Comment", "Posted in"];
+  const words = ["by", "Read more", "Leave a Comment", "Leave a comment", "Posted in"];
   const bodyText = document.body.innerText;
   // "by" only as a lowercase standalone word, not inside "Baby" or "by-pass"
   const untranslated = words.filter((w) => new RegExp(`(^|[\\s(])${w}(?=[\\s:.,)]|$)`).test(bodyText));
