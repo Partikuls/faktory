@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import type { Stage } from "../pipeline.js";
-import { assertBudget } from "../budget.js";
+import { assertBudget, withBudgetSlots } from "../budget.js";
 import { hasArtifact, readJsonArtifact, pageTreePath } from "../artifacts.js";
 import { mapLimit } from "../concurrency.js";
 import { ensurePages } from "../provision/pages.js";
@@ -12,10 +12,7 @@ import { parseDesignTokens } from "../schemas/design-tokens.js";
 import type { PageTree } from "../schemas/page-tree.js";
 
 export const deps = { ensurePages, generatePageTree, republishPage };
-// Each of these concurrent agents gets the whole remaining budget as its own maxBudgetUsd cap
-// (see the comment on remainingBudget in src/agent.ts), so up to PAGES_CONCURRENCY - 1 extra
-// runs' worth of cost can land before the site's maxCostUsd is enforced again. Proper per-run
-// budget splitting is still deferred (phase 5).
+// Pages generated in parallel after the home page; they share the remaining budget (see withBudgetSlots).
 export const PAGES_CONCURRENCY = 3;
 
 export const pagesStage: Stage = {
@@ -57,7 +54,7 @@ export const pagesStage: Stage = {
 
     await build(home); // fixes the pattern; a failing home aborts the stage
     const rest = pages.filter((p) => p.slug !== home.slug);
-    const results = await mapLimit(rest, PAGES_CONCURRENCY, build);
+    const results = await withBudgetSlots(ctx, PAGES_CONCURRENCY, () => mapLimit(rest, PAGES_CONCURRENCY, build));
 
     const failed: string[] = [];
     results.forEach((r, i) => {

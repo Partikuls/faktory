@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import type { Stage } from "../pipeline.js";
-import { assertBudget } from "../budget.js";
+import { assertBudget, withBudgetSlots } from "../budget.js";
 import { readJsonArtifact } from "../artifacts.js";
 import { mapLimit } from "../concurrency.js";
 import { ensurePages } from "../provision/pages.js";
@@ -57,7 +57,7 @@ export const contentStage: Stage = {
       console.log(`  ✔ /${slug}/ published`);
       return slug;
     };
-    const results = await mapLimit(spec.blog.articles, ARTICLES_CONCURRENCY, build);
+    const results = await withBudgetSlots(ctx, ARTICLES_CONCURRENCY, () => mapLimit(spec.blog.articles, ARTICLES_CONCURRENCY, build));
     const failed: string[] = [];
     results.forEach((r, i) => {
       if (r.status === "rejected") {
