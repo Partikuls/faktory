@@ -7,7 +7,7 @@ import { deps as wpDeps } from "../../src/wp.js";
 import { gbBuild, gbScript } from "../../src/gb.js";
 import { parseSiteSpec } from "../../src/schemas/site-spec.js";
 import { parseDesignTokens } from "../../src/schemas/design-tokens.js";
-import type { GbNode } from "../../src/provision/elements.js";
+import { stepper, type GbNode } from "../../src/provision/elements.js";
 import {
   BLOG_HERO_SLUG, BLOG_LOOP_SLUG, POST_HERO_SLUG, blogHeroTree, blogLoopTree, postHeroTree, rawGbBlock, installBlog, deps,
 } from "../../src/provision/blog.js";
@@ -31,11 +31,26 @@ describe("blogHeroTree", () => {
     const amp = { ...blogPage, title: "Pain & actus" };
     expect(flat(blogHeroTree(amp, tokens)).find((n) => n.tagName === "h1")!.content).toBe("Pain &amp; actus");
   });
+  it("zeroes the section's own horizontal padding and pads the inner container to GP's content edge (40px desktop, 30px mobile)", () => {
+    const section = tree[0];
+    expect(section.styles).toMatchObject({ padding: `${tokens.sectionPadding.desktop}px 0` });
+    expect(section.styles?.["@media (max-width:767px)"]).toMatchObject({ padding: `${tokens.sectionPadding.mobile}px 0` });
+    const inner = section.innerBlocks![0];
+    expect(inner.styles).toMatchObject({ paddingLeft: "40px", paddingRight: "40px" });
+    expect(inner.styles?.["@media (max-width:767px)"]).toMatchObject({ paddingLeft: "30px", paddingRight: "30px" });
+  });
+  it("omits the intro paragraph when the meta description is a placeholder spec gap", () => {
+    const placeholder = { ...blogPage, seo: { ...blogPage.seo, metaDescription: "à confirmer" } };
+    const all = flat(blogHeroTree(placeholder, tokens));
+    expect(all.some((n) => n.tagName === "p")).toBe(false);
+    expect(all.filter((n) => n.tagName === "h1")).toHaveLength(1);
+  });
 });
 
 describe("blogLoopTree", () => {
   const tree = blogLoopTree(tokens);
   const all = flat(tree);
+  const step = stepper(tokens);
   it("inherits the main query and lays cards in a 3/2/1 column grid", () => {
     expect(tree[0]).toMatchObject({ type: "query", attrs: { inheritQuery: true } });
     const looper = all.find((n) => n.type === "looper")!;
@@ -44,19 +59,30 @@ describe("blogLoopTree", () => {
     expect(looper.styles?.["@media (max-width:767px)"]).toMatchObject({ gridTemplateColumns: "1fr" });
     noHex(tree);
   });
+  it("zeroes the query node's own horizontal padding, keeping the container centered on vertical padding only", () => {
+    expect(tree[0].styles).toMatchObject({ padding: `${step(7)}px 0` });
+    expect(tree[0].styles?.["@media (max-width:767px)"]).toMatchObject({ padding: `${step(5)}px 0` });
+  });
   it("renders a card with image, category, date, linked h2 title, excerpt and an accessible read link", () => {
     const item = all.find((n) => n.type === "loop-item")!;
     const inner = flat([item]);
     expect(inner.find((n) => n.type === "media")!.htmlAttributes).toMatchObject({ src: "{{featured_image key:url|size:medium_large}}", alt: "{{featured_image key:alt|required:false}}" });
     const contents = inner.map((n) => n.content ?? "");
-    expect(contents).toEqual(expect.arrayContaining(["{{term_list tax:category}}", "{{post_date}}", "{{post_title link:post}}", "{{post_excerpt length:20}}"]));
+    expect(contents).toEqual(expect.arrayContaining(["{{term_list tax:category|sep:, }}", "{{post_date}}", "{{post_title link:post}}", "{{post_excerpt length:20}}"]));
     expect(inner.find((n) => n.tagName === "h2")!.content).toBe("{{post_title link:post}}");
     const read = inner.find((n) => n.tagName === "a")!;
     expect(read.htmlAttributes).toEqual({ href: "{{post_permalink}}" });
     expect(read.content).toContain('<span class="screen-reader-text">');
     expect(all.filter((n) => n.tagName === "h1")).toHaveLength(0);
   });
-  it("ends with raw no-results and page-numbers blocks whose attribute JSON never contains --", () => {
+  it("shows the card's focus ring only for keyboard focus on a link inside it, not on mouse hover/click", () => {
+    const item = all.find((n) => n.type === "loop-item")!;
+    expect(item.styles).toHaveProperty("&:has(a:focus-visible)");
+    expect(item.styles).not.toHaveProperty("&:focus-within");
+    const read = flat([item]).find((n) => n.tagName === "a")!;
+    expect(read.styles).not.toHaveProperty("&:focus-visible");
+  });
+  it("starts with a leading raw query-title block, then ends with raw no-results and page-numbers blocks whose attribute JSON never contains --", () => {
     const raws = all.filter((n) => n.type === "raw").map((n) => n.rawMarkup!);
     expect(raws).toHaveLength(3);
     expect(raws[0]).toBe('<!-- wp:query-title {"type":"archive","showPrefix":false,"level":1} /-->');
@@ -75,13 +101,23 @@ describe("rawGbBlock", () => {
 });
 
 describe("postHeroTree", () => {
-  const all = flat(postHeroTree(tokens));
+  const tree = postHeroTree(tokens);
+  const all = flat(tree);
+  const step = stepper(tokens);
   it("shows category link and date, a single h1 title and the featured image in 16/9", () => {
     expect(all.filter((n) => n.tagName === "h1").map((n) => n.content)).toEqual(["{{post_title}}"]);
-    expect(all.some((n) => (n.content ?? "").includes("{{term_list tax:category|link:true}}") && (n.content ?? "").includes("{{post_date}}"))).toBe(true);
+    expect(all.some((n) => (n.content ?? "").includes("{{term_list tax:category|sep:, |link:true}}") && (n.content ?? "").includes("{{post_date}}"))).toBe(true);
     expect(all.find((n) => n.type === "media")!.styles).toMatchObject({ aspectRatio: "16/9", objectFit: "cover" });
     expect(all.find((n) => n.type === "media")!.htmlAttributes).toMatchObject({ alt: "{{featured_image key:alt|required:false}}" });
-    noHex(postHeroTree(tokens));
+    noHex(tree);
+  });
+  it("zeroes the section's own horizontal padding and pads the 760px inner container to GP's content edge (40px desktop, 30px mobile)", () => {
+    const section = tree[0];
+    expect(section.styles).toMatchObject({ padding: `${step(7)}px 0 ${step(5)}px 0` });
+    expect(section.styles?.["@media (max-width:767px)"]).toMatchObject({ padding: `${step(5)}px 0 ${step(4)}px 0` });
+    const inner = section.innerBlocks![0];
+    expect(inner.styles).toMatchObject({ maxWidth: "760px", paddingLeft: "40px", paddingRight: "40px" });
+    expect(inner.styles?.["@media (max-width:767px)"]).toMatchObject({ paddingLeft: "30px", paddingRight: "30px" });
   });
 });
 

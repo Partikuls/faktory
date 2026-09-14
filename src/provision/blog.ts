@@ -3,6 +3,7 @@ import { wpOk } from "../wp.js";
 import { gbBuild } from "../gb.js";
 import type { Page, SiteSpec } from "../schemas/site-spec.js";
 import type { DesignTokens } from "../schemas/design-tokens.js";
+import { isPlaceholder } from "../spec-gaps.js";
 import { MOBILE, TABLET, esc, stepper, text, upsertBlockElement, type GbNode } from "./elements.js";
 
 export const deps = { gbBuild };
@@ -12,6 +13,13 @@ export const POST_HERO_SLUG = "faktory-post-hero";
 
 const container = { maxWidth: "var(--gb-container-width)", marginLeft: "auto", marginRight: "auto" };
 const focusRing = { outline: "2px solid var(--accent)", outlineOffset: "3px" };
+
+/**
+ * GeneratePress's default content edge padding (measured on :8100 — Faktory never sets
+ * generate_spacing_settings, so GP's own defaults apply). GP's mobile breakpoint is 768px vs
+ * Faktory's 767px; the 1px mismatch is accepted.
+ */
+const GP_CONTENT_PADDING = { desktop: 40, mobile: 30 };
 
 /** A GenerateBlocks block written by hand; `--` is forbidden inside block comments, so it is escaped as gb_build.py does. */
 export function rawGbBlock(name: string, attrs: Record<string, unknown>, inner: string): string {
@@ -24,12 +32,18 @@ export function blogHeroTree(page: Page, tokens: DesignTokens): GbNode[] {
   const step = stepper(tokens);
   return [{
     type: "element", tagName: "section", styles: {
-      backgroundColor: "var(--base-2)", padding: `${tokens.sectionPadding.desktop}px 24px`,
-      [MOBILE]: { padding: `${tokens.sectionPadding.mobile}px 16px` },
+      backgroundColor: "var(--base-2)", padding: `${tokens.sectionPadding.desktop}px 0`,
+      [MOBILE]: { padding: `${tokens.sectionPadding.mobile}px 0` },
     }, innerBlocks: [{
-      type: "element", tagName: "div", styles: { ...container }, innerBlocks: [
+      type: "element", tagName: "div", styles: {
+        ...container, paddingLeft: `${GP_CONTENT_PADDING.desktop}px`, paddingRight: `${GP_CONTENT_PADDING.desktop}px`,
+        [MOBILE]: { paddingLeft: `${GP_CONTENT_PADDING.mobile}px`, paddingRight: `${GP_CONTENT_PADDING.mobile}px` },
+      }, innerBlocks: [
         text("h1", esc(page.title), { marginBottom: `${step(3)}px` }),
-        text("p", esc(page.seo.metaDescription), { fontSize: "20px", color: "var(--contrast-2)", maxWidth: "60ch", marginBottom: "0", [MOBILE]: { fontSize: "18px" } }),
+        // A placeholder meta description (spec gap) is internal filler text, never shown to visitors.
+        ...(isPlaceholder(page.seo.metaDescription) ? [] : [
+          text("p", esc(page.seo.metaDescription), { fontSize: "20px", color: "var(--contrast-2)", maxWidth: "60ch", marginBottom: "0", [MOBILE]: { fontSize: "18px" } }),
+        ]),
       ],
     }],
   }];
@@ -45,18 +59,20 @@ export function blogLoopTree(tokens: DesignTokens): GbNode[] {
       display: "flex", flexDirection: "column", backgroundColor: "var(--base-3)", border: "1px solid var(--contrast-3)", borderRadius: radius,
       overflow: "hidden", transition: "transform 150ms ease, box-shadow 150ms ease",
       "&:hover": { transform: "translateY(-2px)", boxShadow: "0 8px 24px color-mix(in srgb, var(--contrast) 12%, transparent)" },
-      "&:focus-within": focusRing,
+      "&:has(a:focus-visible)": focusRing,
     }, innerBlocks: [
       { type: "media", tagName: "img", htmlAttributes: { src: "{{featured_image key:url|size:medium_large}}", alt: "{{featured_image key:alt|required:false}}", loading: "lazy" },
         styles: { display: "block", width: "100%", height: "auto", aspectRatio: "3/2", objectFit: "cover", backgroundColor: "var(--base-2)" } },
       { type: "element", tagName: "div", styles: { display: "flex", flexDirection: "column", gap: `${step(2)}px`, padding: `${step(4)}px`, flexGrow: "1" }, innerBlocks: [
-        text("p", "{{term_list tax:category}}", { fontSize: "13px", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", margin: "0" }),
+        text("p", "{{term_list tax:category|sep:, }}", { fontSize: "13px", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", margin: "0" }),
         text("h2", "{{post_title link:post}}", { fontSize: `${tokens.type.h4}px`, lineHeight: "1.25", margin: "0", "& a": { color: "var(--contrast)", textDecoration: "none" }, "& a:hover": { color: "var(--accent)" } }),
         text("p", "{{post_date}}", { fontSize: "14px", color: "var(--contrast-2)", margin: "0" }),
         text("p", "{{post_excerpt length:20}}", { margin: "0", flexGrow: "1" }),
+        // No own focus ring: the card's "&:has(a:focus-visible)" ring already shows on keyboard focus
+        // of this link (or the title link above), so a second ring here would only double it up.
         text("a", 'Lire l\'article<span class="screen-reader-text"> : {{post_title}}</span>', {
           alignSelf: "flex-start", fontWeight: "600", color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "3px",
-          "&:hover": { color: "var(--contrast)" }, "&:focus-visible": focusRing,
+          "&:hover": { color: "var(--contrast)" },
         }, { href: "{{post_permalink}}" }),
       ] },
     ],
@@ -88,7 +104,7 @@ export function blogLoopTree(tokens: DesignTokens): GbNode[] {
 
   return [{
     type: "query", tagName: "div", attrs: { inheritQuery: true, query: {} }, styles: {
-      ...container, padding: `${step(7)}px 24px`, [MOBILE]: { padding: `${step(5)}px 16px` },
+      ...container, padding: `${step(7)}px 0`, [MOBILE]: { padding: `${step(5)}px 0` },
       "& .wp-block-query-title": { marginTop: "0", marginBottom: `${step(5)}px` },
     }, innerBlocks: [
       queryTitle,
@@ -107,10 +123,17 @@ export function blogLoopTree(tokens: DesignTokens): GbNode[] {
 export function postHeroTree(tokens: DesignTokens): GbNode[] {
   const step = stepper(tokens);
   return [{
-    type: "element", tagName: "section", styles: { backgroundColor: "var(--base)", padding: `${step(7)}px 24px ${step(5)}px`, [MOBILE]: { padding: `${step(5)}px 16px ${step(4)}px` } },
+    type: "element", tagName: "section", styles: {
+      backgroundColor: "var(--base)", padding: `${step(7)}px 0 ${step(5)}px 0`,
+      [MOBILE]: { padding: `${step(5)}px 0 ${step(4)}px 0` },
+    },
     innerBlocks: [{
-      type: "element", tagName: "div", styles: { maxWidth: "760px", marginLeft: "auto", marginRight: "auto" }, innerBlocks: [
-        text("p", "{{term_list tax:category|link:true}} · {{post_date}}", {
+      type: "element", tagName: "div", styles: {
+        maxWidth: "760px", marginLeft: "auto", marginRight: "auto",
+        paddingLeft: `${GP_CONTENT_PADDING.desktop}px`, paddingRight: `${GP_CONTENT_PADDING.desktop}px`,
+        [MOBILE]: { paddingLeft: `${GP_CONTENT_PADDING.mobile}px`, paddingRight: `${GP_CONTENT_PADDING.mobile}px` },
+      }, innerBlocks: [
+        text("p", "{{term_list tax:category|sep:, |link:true}} · {{post_date}}", {
           fontSize: "14px", color: "var(--contrast-2)", marginBottom: `${step(3)}px`,
           "& a": { color: "var(--accent)", textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: "13px" },
           "& a:hover": { textDecoration: "underline" },
