@@ -1,6 +1,6 @@
 import type { Stage } from "../pipeline.js";
 import { runAgent, runValidated } from "../agent.js";
-import { hasArtifact, readJsonArtifact, writeJsonArtifact, writeTextArtifact } from "../artifacts.js";
+import { readJsonArtifact, writeJsonArtifact, writeTextArtifact } from "../artifacts.js";
 import { loadPrompt } from "../prompts.js";
 import { toJsonSchema } from "../schemas/json-schema.js";
 import { SiteSpecShape, parseSiteSpec } from "../schemas/site-spec.js";
@@ -31,10 +31,8 @@ export const specStage: Stage = {
   },
   async onApprove(ctx) {
     const s = await resyncFromMarkdown(ctx, SPEC_RESYNC);
-    if (s || hasArtifact(ctx, "siteSpecJson")) {
-      const gaps = findSpecGaps(s ?? readJsonArtifact(ctx, "siteSpecJson", parseSiteSpec));
-      if (gaps.length) console.warn(gapWarning(gaps));
-    }
+    const gaps = findSpecGaps(s ?? readJsonArtifact(ctx, "siteSpecJson", parseSiteSpec));
+    if (gaps.length) console.warn(gapWarning(gaps));
     return s ? `approved; site-spec.json re-synced from edited SITE-SPEC.md (${s.sitemap.length} pages)` : undefined;
   },
 };
