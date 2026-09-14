@@ -1,6 +1,6 @@
 import type { Stage } from "../pipeline.js";
 import { runAgent, runValidated } from "../agent.js";
-import { readJsonArtifact, writeJsonArtifact, writeTextArtifact } from "../artifacts.js";
+import { hasArtifact, readJsonArtifact, writeJsonArtifact, writeTextArtifact } from "../artifacts.js";
 import { loadPrompt } from "../prompts.js";
 import { toJsonSchema } from "../schemas/json-schema.js";
 import { SiteSpecShape, parseSiteSpec } from "../schemas/site-spec.js";
@@ -31,7 +31,9 @@ export const specStage: Stage = {
   },
   async onApprove(ctx) {
     const s = await resyncFromMarkdown(ctx, SPEC_RESYNC);
-    const gaps = findSpecGaps(s ?? readJsonArtifact(ctx, "siteSpecJson", parseSiteSpec));
+    // A spec approved without site-spec.json (stub stages in pipeline tests) has nothing to scan.
+    const spec = s ?? (hasArtifact(ctx, "siteSpecJson") ? readJsonArtifact(ctx, "siteSpecJson", parseSiteSpec) : undefined);
+    const gaps = spec ? findSpecGaps(spec) : [];
     if (gaps.length) console.warn(gapWarning(gaps));
     return s ? `approved; site-spec.json re-synced from edited SITE-SPEC.md (${s.sitemap.length} pages)` : undefined;
   },

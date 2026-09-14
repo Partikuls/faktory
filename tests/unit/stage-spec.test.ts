@@ -71,4 +71,10 @@ describe("spec stage", () => {
     expect(await specStage.onApprove!(c)).toBeUndefined();
     expect(warn).toHaveBeenCalledWith("⚠ 2 informations à compléter dans SITE-SPEC.md (Téléphone, Adresse) — le site affichera des manques");
   });
+  it("onApprove without site-spec.json neither warns nor throws", async () => {
+    const c = await ctx();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await specStage.onApprove!(c)).toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+  });
 });
