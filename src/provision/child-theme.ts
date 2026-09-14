@@ -22,8 +22,9 @@ const phpQuote = (s: string): string => s.replace(/\\/g, "\\\\").replace(/'/g, "
 /** The child theme's whole functions.php, regenerated on every provision. */
 export function childThemeFunctions(slug: string, t: DesignTokens): string {
   const fn = `faktory_${slug.replace(/[^a-z0-9]/g, "_")}`;
-  const handle = `faktory-${slug}-style`;
-  const font = t.fonts.body.family.replace(/["\\]/g, "");
+  // Defence in depth: the schema already validates the family (letters, digits, spaces only), but
+  // strip everything else here too in case that validation is ever bypassed.
+  const font = t.fonts.body.family.replace(/[^A-Za-z0-9 ]/g, "");
   const css = `body .gform-theme--framework{--gf-font-family-base:"${font}", sans-serif;}`
     + ".single-post .entry-content{max-width:760px;margin-left:auto;margin-right:auto;}";
   return `<?php
@@ -33,15 +34,16 @@ export function childThemeFunctions(slug: string, t: DesignTokens): string {
  * @package faktory-${slug}
  */
 
-add_action( 'wp_enqueue_scripts', '${fn}_enqueue_styles' );
+add_action( 'wp_enqueue_scripts', '${fn}_enqueue_styles', 20 );
 
 /**
- * Parent and child stylesheets, plus the token-driven inline CSS.
+ * Token-driven inline CSS on GeneratePress's own child stylesheet handle. GeneratePress already
+ * enqueues 'generate-child' for us (generatepress/inc/general.php, priority 10) — the parent
+ * style.css is header-only and never enqueued, and our child style.css only carries the theme
+ * header, so nothing else needs registering here. Priority 20 runs after GP's own enqueue.
  */
 function ${fn}_enqueue_styles() {
-	wp_enqueue_style( 'generatepress-style', get_template_directory_uri() . '/style.css', array(), '0.1.0' );
-	wp_enqueue_style( '${handle}', get_stylesheet_directory_uri() . '/style.css', array( 'generatepress-style' ), '0.1.0' );
-	wp_add_inline_style( '${handle}', '${phpQuote(css)}' );
+	wp_add_inline_style( 'generate-child', '${phpQuote(css)}' );
 }
 
 add_filter( 'gform_default_styles', '${fn}_gform_default_styles' );
@@ -57,11 +59,25 @@ function ${fn}_gform_default_styles() {
 `;
 }
 
-/** Write functions.php inside the wpcli container (same owner as WordPress files), then lint it. */
+/**
+ * Write functions.php inside the wpcli container (same owner as WordPress files), then lint it before
+ * replacing the live file: write and lint a `.tmp` sibling, and only `mv` it over the real path once the
+ * lint passes, so a bad generation never clobbers a working functions.php. On a lint failure the tmp file
+ * is removed and the existing functions.php is left untouched.
+ *
+ * ctx.slug is validated by SLUG_RE (see workspace.ts) before any SiteContext exists, so it is safe to
+ * interpolate into `path`/`tmp` here.
+ */
 export async function installChildTheme(ctx: SiteContext, tokens: DesignTokens): Promise<void> {
   const path = childThemeFunctionsPath(ctx.slug);
-  const write = await deps.composeExec(ctx, "wpcli", ["sh", "-c", `cat > ${path}`], { input: childThemeFunctions(ctx.slug, tokens) });
-  if (write.code !== 0) throw new Error(`writing ${path} failed: ${(write.stderr || write.stdout).trim()}`);
-  const lint = await deps.composeExec(ctx, "wpcli", ["php", "-l", path]);
-  if (lint.code !== 0) throw new Error(`php -l ${path} failed: ${(lint.stderr || lint.stdout).trim()}`);
+  const tmp = `${path}.tmp`;
+  const write = await deps.composeExec(ctx, "wpcli", ["sh", "-c", 'cat > "$1"', "sh", tmp], { input: childThemeFunctions(ctx.slug, tokens) });
+  if (write.code !== 0) throw new Error(`writing ${tmp} failed: ${(write.stderr || write.stdout).trim()}`);
+  const lint = await deps.composeExec(ctx, "wpcli", ["php", "-l", tmp]);
+  if (lint.code !== 0) {
+    await deps.composeExec(ctx, "wpcli", ["rm", "-f", tmp]);
+    throw new Error(`php -l ${tmp} failed: ${(lint.stderr || lint.stdout).trim()}`);
+  }
+  const move = await deps.composeExec(ctx, "wpcli", ["mv", tmp, path]);
+  if (move.code !== 0) throw new Error(`moving ${tmp} to ${path} failed: ${(move.stderr || move.stdout).trim()}`);
 }

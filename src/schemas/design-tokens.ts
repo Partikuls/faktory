@@ -7,7 +7,7 @@ const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "6-digit hex color");
 const px = z.number().int().min(0);
 
 export const GoogleFont = z.object({
-  family: z.string().describe("Exact Google Fonts family name, e.g. \"Fraunces\""),
+  family: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 ]*$/, "Google Fonts family: letters, digits and spaces").describe("Exact Google Fonts family name, e.g. \"Fraunces\""),
   category: z.enum(["serif", "sans-serif", "display", "handwriting", "monospace"]),
   variants: z.string().describe("Comma-separated weights, e.g. \"400,600,700\" (italics as \"400italic\")"),
 });
