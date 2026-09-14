@@ -58,8 +58,11 @@ export function regenerationNotice(ctx: SiteContext, stage: StageName): string |
     ...(hasFiles(join(ctx.siteDir, PAGES_DIR), ".gb.json") ? ["pages/*.gb.json"] : []),
     ...(hasFiles(join(ctx.siteDir, ARTICLES_DIR), ".json") ? ["content/articles/*.json"] : []),
   ];
+  // design never reuses its files, so regenerating spec also means design will overwrite its hand edits next.
+  const redesigned = stage === "spec" ? (REGENERATED.design ?? []).filter((k) => existsSync(artifactPath(ctx, k))).map((k) => ARTIFACTS[k]) : [];
   return [
     `⚠ Régénérer ${stage} écrase : ${files.join(", ")}`,
+    ...(redesigned.length ? [`  Seront régénérés ensuite par design : ${redesigned.join(", ")}`] : []),
     `  Les étapes suivantes repasseront en attente : ${later.join(", ")}`,
     ...(kept.length ? [`  Conservés et réutilisés par leurs étapes : ${kept.join(", ")} — supprimez-les pour tout reconstruire`] : []),
   ].join("\n");

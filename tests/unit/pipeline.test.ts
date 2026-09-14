@@ -356,6 +356,28 @@ describe("regenerating a checkpoint", () => {
     await expect(runSite(config, "pp", { only: "design", stages: { design: ok("design", false, log) } })).rejects.toThrow(/relancez avec --yes pour confirmer/);
     expect(log).toEqual([]);
   });
+  it("--only spec also names the design files design will regenerate, only when they exist", async () => {
+    const noticeFor = async (withDesign: boolean) => {
+      const config = await setup();
+      const dir = siteDir(config, "pp");
+      let st = readState(dir);
+      for (const name of STAGES) st = setStage(st, name, "done");
+      writeState(dir, st);
+      const ctx = loadContext(config, "pp");
+      writeTextArtifact(ctx, "siteSpecMd", "# spec");
+      if (withDesign) { writeTextArtifact(ctx, "designSystemMd", "# design"); writeJsonArtifact(ctx, "designTokensJson", {}); }
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      await runSite(config, "pp", { only: "spec", yes: true, stages: { spec: ok("spec") } });
+      const lines = warn.mock.calls.map((c) => String(c[0])).join("\n");
+      warn.mockRestore();
+      return lines;
+    };
+    const withDesign = await noticeFor(true);
+    expect(withDesign).toContain("⚠ Régénérer spec écrase : SITE-SPEC.md\n  Seront régénérés ensuite par design : design-system.md, design-tokens.json\n");
+    const without = await noticeFor(false);
+    expect(without).toContain("⚠ Régénérer spec écrase : SITE-SPEC.md");
+    expect(without).not.toContain("Seront régénérés ensuite par design");
+  });
   it("does not ask for a non-checkpoint stage, nor for a checkpoint that was never generated", async () => {
     const confirm = vi.spyOn(deps, "confirm");
     const done = await doneSite();
