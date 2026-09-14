@@ -34,7 +34,19 @@ export function formValues(form: GfLiveForm, marker: string, now: Date = new Dat
   return out;
 }
 
-type EntryRow = { id: string | number } & Record<string, unknown>;
+type EntryRow = Record<string, unknown>;
+
+/**
+ * The entry id of a `wp gf entry list --format=json` row. The CLI keys rows by translated column labels
+ * ("Entry Id", "ID de l’entrée"), field columns as "<fieldId>: <label>", so the id is the non-field column named "id".
+ */
+export function entryId(row: EntryRow): string | undefined {
+  for (const [key, value] of Object.entries(row)) {
+    if (/^\d+(\.\d+)?: /.test(key) || !/\bid\b/i.test(key)) continue;
+    if (/^\d+$/.test(String(value))) return String(value);
+  }
+  return undefined;
+}
 
 /**
  * Fill and send form `gfId` on `url` like a visitor, wait for its confirmation, then find the entry by its marker and
@@ -84,9 +96,12 @@ export async function submitForm(
     if (!entries) return done(problem ?? `liste des entrées illisible (#${gfId})`);
     const entry = entries.find((e) => Object.values(e).some((v) => typeof v === "string" && v.includes(marker)));
     if (!entry) return done(problem ?? "aucune entrée créée");
-    // An entry is always removed, even when the confirmation was missing.
-    const removed = await deps.runWp(ctx, ["gf", "entry", "delete", String(entry.id), "--force"]);
-    if (removed.code !== 0) return done(problem ?? `entrée #${entry.id} non supprimée`);
+    const id = entryId(entry);
+    if (!id) return done(problem ?? `identifiant de l’entrée introuvable (#${gfId})`);
+    // An entry is always removed, even when the confirmation was missing. The CLI exits 0 when it cannot delete, so
+    // only its (untranslated) success line counts.
+    const removed = await deps.runWp(ctx, ["gf", "entry", "delete", id, "--force"]);
+    if (removed.code !== 0 || !removed.stdout.includes(`Deleted entry ${id}`)) return done(problem ?? `entrée #${id} non supprimée`);
     return done(problem);
   } catch (err) {
     return done((err instanceof Error ? err.message : String(err)).split("\n")[0].slice(0, 300));
