@@ -40,6 +40,8 @@ Vérification 8a : rerun `provision → export` sur un site neuf ; en-tête, men
 
 ### 8b — Fiabilité et qualité de la chaîne
 
+Découpé le 2026-09-14 en 8b1 (B1, B3, B7, B8, B9, B10 : `2026-09-14-faktory-phase8b1-design.md`) et 8b2 (B2, B4, B5, B6).
+
 | # | Point | Origine | Piste |
 |---|---|---|---|
 | B1 | Répartition du budget par agent concurrent | reporté phases 4, 5 | Diviser le reste du budget entre les agents lancés en parallèle (`pages`, `content`, `qa`) au lieu de donner le reste entier à chacun, pour que `maxCostUsd` ne puisse plus être dépassé de plusieurs runs. |

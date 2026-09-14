@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames, addCost, remainingBudget, agentQueryOptions } from "../../src/agent.js";
+import { isInside, writeGuard, pluginPath, resolveModel, effectiveAllowedTools, pluginSkillNames, addCost, agentQueryOptions } from "../../src/agent.js";
 import { loadConfig } from "../../src/config.js";
 import { createState } from "../../src/state.js";
 import { createFaktoryServer, FAKTORY_SERVER } from "../../src/tools/server.js";
@@ -103,35 +103,28 @@ describe("agentQueryOptions", () => {
   const ctx: SiteContext = { config: loadConfig("/tmp/fk"), slug: "d", siteDir: "/tmp/fk/sites/d", state: createState("d", 8100, "pw") };
   const server = createFaktoryServer(ctx);
   it("builds the exact options passed to query()", () => {
-    const opts = agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: ["Read"] }, server);
+    const opts = agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: ["Read"] }, server, 12.5);
     expect(opts.strictMcpConfig).toBe(true);
     expect(opts.settingSources).toEqual([]);
     expect(opts.allowedTools?.at(-1)).toBe("Skill");
     expect(opts.mcpServers).toEqual({ [FAKTORY_SERVER]: server });
     expect(opts.maxTurns).toBe(60);
     expect(opts.resume).toBeUndefined();
+    expect(opts.maxBudgetUsd).toBe(12.5);
   });
   it("defaults maxTurns to 60 and honours an override", () => {
-    expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [] }, server).maxTurns).toBe(60);
-    expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], maxTurns: 10 }, server).maxTurns).toBe(10);
+    expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [] }, server, 12.5).maxTurns).toBe(60);
+    expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], maxTurns: 10 }, server, 12.5).maxTurns).toBe(10);
   });
   it("passes resume through", () => {
-    expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], resume: "s1" }, server).resume).toBe("s1");
+    expect(agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], resume: "s1" }, server, 12.5).resume).toBe("s1");
   });
   it("builds the write guard from opts.writeRoots", async () => {
-    const opts = agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], writeRoots: ["pages"] }, server);
+    const opts = agentQueryOptions(ctx, { stage: "pages", prompt: "go", allowedTools: [], writeRoots: ["pages"] }, server, 12.5);
     const guard = opts.hooks!.PreToolUse![0].hooks[0];
     const call = (file_path: string) =>
       guard({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: { file_path }, session_id: "s", transcript_path: "", cwd: ctx.siteDir } as never, "t1", { signal: new AbortController().signal });
     expect(await call(`${ctx.siteDir}/design-system.md`)).toMatchObject({ hookSpecificOutput: { permissionDecision: "deny" } });
     expect(await call(`${ctx.siteDir}/pages/a.json`)).toEqual({});
-  });
-});
-
-describe("remainingBudget", () => {
-  const base = { config: loadConfig("/tmp/fk"), slug: "d", siteDir: "/tmp/fk/sites/d", state: createState("d", 8100, "pw") };
-  it("is maxCostUsd minus spent, floored at 0.05", () => {
-    expect(remainingBudget({ ...base, state: { ...base.state, costUsd: 10 } })).toBe(30);
-    expect(remainingBudget({ ...base, state: { ...base.state, costUsd: 45 } })).toBe(0.05);
   });
 });

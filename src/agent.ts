@@ -4,6 +4,7 @@ import type { FaktoryConfig } from "./config.js";
 import type { SiteContext } from "./docker.js";
 import { writeState, type SiteState } from "./state.js";
 import { createFaktoryServer, FAKTORY_SERVER } from "./tools/server.js";
+import { reserveBudget } from "./budget.js";
 
 export function isInside(base: string, target: string): boolean {
   const b = resolve(base), t = resolve(target);
@@ -53,15 +54,6 @@ export function addCost(state: SiteState, usd: number): SiteState {
   return { ...state, costUsd: Math.round((state.costUsd + usd) * 10000) / 10000 };
 }
 
-// Each agent run receives the *whole* remaining budget as its `maxBudgetUsd` cap (the SDK has no
-// notion of "N runs share this budget"). With N concurrent agents (see PAGES_CONCURRENCY in
-// src/stages/pages.ts) that means the site can overshoot `maxCostUsd` by up to (N-1) x one run's
-// cost before the next stage sees the overrun and stops. Proper per-run splitting is still
-// deferred (phase 5).
-export function remainingBudget(ctx: SiteContext): number {
-  return Math.max(0.05, Math.round((ctx.config.maxCostUsd - ctx.state.costUsd) * 100) / 100);
-}
-
 export type AgentRun = { text: string; transcript: string; structured?: unknown; costUsd: number; sessionId?: string; numTurns: number };
 
 export type AgentOptions = {
@@ -76,7 +68,7 @@ export type AgentOptions = {
 export type AgentRunner = (ctx: SiteContext, opts: AgentOptions) => Promise<AgentRun>;
 
 /** The exact `options` object `runAgent` passes to `query()`; extracted so it can be unit-tested without a live agent call. */
-export function agentQueryOptions(ctx: SiteContext, opts: AgentOptions, server: ReturnType<typeof createFaktoryServer>): Options {
+export function agentQueryOptions(ctx: SiteContext, opts: AgentOptions, server: ReturnType<typeof createFaktoryServer>, maxBudgetUsd: number): Options {
   return {
     cwd: ctx.siteDir,
     model: resolveModel(ctx.config, opts.stage, opts.model),
@@ -90,7 +82,7 @@ export function agentQueryOptions(ctx: SiteContext, opts: AgentOptions, server: 
     strictMcpConfig: true,
     hooks: { PreToolUse: [{ matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [writeGuard(ctx.siteDir, opts.writeRoots)] }] },
     maxTurns: opts.maxTurns ?? 60,
-    maxBudgetUsd: remainingBudget(ctx),
+    maxBudgetUsd,
     outputFormat: opts.outputFormat,
     resume: opts.resume,
   };
@@ -103,34 +95,40 @@ export async function runAgent(
   const server = createFaktoryServer(ctx);
   let out: AgentRun | undefined;
   const transcriptParts: string[] = [];
-  for await (const message of query({
-    prompt: opts.prompt,
-    options: agentQueryOptions(ctx, opts, server),
-  })) {
-    if (message.type === "assistant") {
-      for (const block of message.message.content) {
-        if (block.type === "text") {
-          const text = block.text.trim();
-          if (text) {
-            console.log(`  [${opts.stage}] ${text.split("\n")[0].slice(0, 160)}`);
-            transcriptParts.push(text);
+  // A share of the budget reserved for this run; released once its real cost is on ctx.state (or it failed).
+  const budget = reserveBudget(ctx);
+  try {
+    for await (const message of query({
+      prompt: opts.prompt,
+      options: agentQueryOptions(ctx, opts, server, budget.capUsd),
+    })) {
+      if (message.type === "assistant") {
+        for (const block of message.message.content) {
+          if (block.type === "text") {
+            const text = block.text.trim();
+            if (text) {
+              console.log(`  [${opts.stage}] ${text.split("\n")[0].slice(0, 160)}`);
+              transcriptParts.push(text);
+            }
           }
         }
       }
+      if (message.type === "result") {
+        ctx.state = addCost(ctx.state, message.total_cost_usd);
+        writeState(ctx.siteDir, ctx.state);
+        if (message.subtype !== "success") throw new Error(`Agent stage "${opts.stage}" ended with ${message.subtype}`);
+        out = {
+          text: message.result,
+          transcript: transcriptParts.join("\n"),
+          structured: (message as { structured_output?: unknown }).structured_output,
+          costUsd: message.total_cost_usd,
+          sessionId: message.session_id,
+          numTurns: message.num_turns,
+        };
+      }
     }
-    if (message.type === "result") {
-      ctx.state = addCost(ctx.state, message.total_cost_usd);
-      writeState(ctx.siteDir, ctx.state);
-      if (message.subtype !== "success") throw new Error(`Agent stage "${opts.stage}" ended with ${message.subtype}`);
-      out = {
-        text: message.result,
-        transcript: transcriptParts.join("\n"),
-        structured: (message as { structured_output?: unknown }).structured_output,
-        costUsd: message.total_cost_usd,
-        sessionId: message.session_id,
-        numTurns: message.num_turns,
-      };
-    }
+  } finally {
+    budget.release();
   }
   if (!out) throw new Error(`Agent stage "${opts.stage}" produced no result`);
   return out;

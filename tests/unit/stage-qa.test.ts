@@ -9,8 +9,9 @@ import { writeJsonArtifact, pageTreePath } from "../../src/artifacts.js";
 import { parseSiteSpec, type Page } from "../../src/schemas/site-spec.js";
 import { featureMarker, formMarker, FEATURE_WRAPPER_ATTR, FORM_WRAPPER_ATTR, type PageTree } from "../../src/schemas/page-tree.js";
 import { articleSlug } from "../../src/schemas/article.js";
-import { checkPath, qaReportJsonPath, qaReportMdPath, parseQaReport, treeHash, QA_REPORT_JSON, type PageCheck, type QaReport } from "../../src/schemas/qa.js";
-import { qaStage, deps, QA_CONCURRENCY, qaTargets } from "../../src/stages/qa.js";
+import { checkPath, qaReportJsonPath, qaReportMdPath, parsePageCheck, parseQaReport, treeHash, QA_REPORT_JSON, type PageCheck, type QaReport } from "../../src/schemas/qa.js";
+import { qaStage, deps, QA_CONCURRENCY, qaTargets, formTargets } from "../../src/stages/qa.js";
+import { gfPlacement } from "../../src/schemas/forms-manifest.js";
 import type { ReviewResult } from "../../src/qa/review.js";
 import type { SiteContext } from "../../src/docker.js";
 
@@ -231,6 +232,40 @@ describe("qa stage", () => {
     writeFileSync(join(c.siteDir, QA_REPORT_JSON), "{ nope");
     spies();
     await expect(qaStage.run(c)).rejects.toThrow(/qa\/report.json is not valid JSON.*delete it/);
+  });
+  const writeForms = (c: SiteContext) => {
+    mkdirSync(join(c.siteDir, "content"), { recursive: true });
+    writeFileSync(join(c.siteDir, "content/forms.json"), JSON.stringify({
+      devis_evenement: { gfId: 1, placement: gfPlacement(1) }, contact: { gfId: 2, placement: gfPlacement(2) },
+    }));
+  };
+  it("targets each form once, on the first page of the spec that carries it", async () => {
+    const c = await ctx();
+    const t = formTargets(spec, { devis_evenement: { gfId: 1, placement: gfPlacement(1) }, contact: { gfId: 2, placement: gfPlacement(2) } }, qaTargets(c, spec));
+    expect(t.map((x) => [x.formId, x.gfId, x.target.slug])).toEqual([["devis_evenement", 1, "commandes-evenements"], ["contact", 2, "contact"]]);
+  });
+  it("submits every form after the reviews and records the result in that page's check and report", async () => {
+    const c = await ctx(); writeForms(c);
+    const s = spies();
+    const submit = vi.spyOn(deps, "submitForm").mockImplementation(async (_b, _c, url, formId, gfId) => ({
+      formId, gfId, url, ok: formId === "contact", ...(formId === "contact" ? {} : { error: "aucune entrée créée" }), checkedAt: "2026-09-14T00:00:00.000Z",
+    }));
+    const msg = await qaStage.run(c);
+    expect(msg).toMatch(/; 0 remaining issues; 1 form failed — \$/);
+    expect(submit.mock.calls.map((k: any) => [k[3], k[4], new URL(k[2]).pathname])).toEqual([["devis_evenement", 1, "/commandes-evenements/"], ["contact", 2, "/contact/"]]);
+    expect(s.close).toHaveBeenCalledTimes(1);
+    const report = parseQaReport(JSON.parse(readFileSync(qaReportJsonPath(c), "utf8")));
+    expect(report.pages.find((p) => p.slug === "contact")!.check.formSubmissions).toMatchObject([{ formId: "contact", ok: true }]);
+    expect(report.pages.find((p) => p.slug === "accueil")!.check.formSubmissions).toEqual([]);
+    expect(parsePageCheck(JSON.parse(readFileSync(checkPath(c, "commandes-evenements"), "utf8"))).formSubmissions[0].error).toBe("aucune entrée créée");
+    expect(readFileSync(qaReportMdPath(c), "utf8")).toContain("formulaire devis_evenement (#1) : aucune entrée créée");
+  });
+  it("submits nothing without a forms manifest", async () => {
+    const c = await ctx();
+    spies();
+    const submit = vi.spyOn(deps, "submitForm");
+    await qaStage.run(c);
+    expect(submit).not.toHaveBeenCalled();
   });
   it("does not review a page without a tree", async () => {
     const c = await ctx({ trees: ["accueil"] });

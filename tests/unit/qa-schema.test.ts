@@ -70,6 +70,18 @@ describe("page check", () => {
     const { untranslated: _u, ...old } = check();
     expect(parsePageCheck(old).untranslated).toEqual([]);
   });
+  it("accepts a stored check without formSubmissions and defaults it to []", () => {
+    const { formSubmissions: _f, ...old } = check();
+    expect(parsePageCheck(old).formSubmissions).toEqual([]);
+  });
+  it("lists a failed form submission as an automated issue", () => {
+    const c = { ...check(), formSubmissions: [
+      { formId: "contact", gfId: 2, url: "http://localhost:8101/contact/", ok: true, checkedAt: "2026-09-14T00:00:00.000Z" },
+      { formId: "devis_evenement", gfId: 1, url: "http://localhost:8101/commandes-evenements/", ok: false, error: "aucune entrée créée", checkedAt: "2026-09-14T00:00:00.000Z" },
+    ] };
+    expect(checkIssues(parsePageCheck(c))).toContain("formulaire devis_evenement (#1) : aucune entrée créée");
+    expect(checkIssues(parsePageCheck(c)).filter((l) => l.startsWith("formulaire"))).toHaveLength(1);
+  });
 });
 
 describe("agent verdict", () => {

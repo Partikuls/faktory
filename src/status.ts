@@ -1,4 +1,5 @@
-import { STAGES, type SiteState } from "./state.js";
+import { STAGES, type SiteState, type StageName } from "./state.js";
+import type { RunRecord, StageTotal } from "./history.js";
 
 /** `1h 03m 11s`, `2m 06s`, `0s`; a dash when the stage has no measured duration. */
 export function formatDuration(ms: number | undefined): string {
@@ -37,4 +38,33 @@ export function renderStatus(state: SiteState): string {
   const waiting = STAGES.find((s) => state.stages[s].status === "awaiting_approval");
   if (waiting) lines.push("", `Stage ${waiting} awaits approval: faktory approve ${state.slug} && faktory run ${state.slug}`);
   return lines.join("\n");
+}
+
+/** `faktory status <slug> --history`: one block per CLI call, oldest first. */
+export function renderHistory(runs: RunRecord[]): string {
+  if (!runs.length) return "No run history yet.";
+  const blocks: string[] = [];
+  for (const runId of [...new Set(runs.map((r) => r.runId))]) {
+    const events = runs.filter((r) => r.runId === runId);
+    const { faktory, options } = events[0];
+    const commit = faktory.commit ? `${faktory.commit}${faktory.dirty ? "+dirty" : ""}` : "no commit";
+    const flags = [options.from && `--from ${options.from}`, options.only && `--only ${options.only}`, options.yes && "--yes", `max $${options.maxCostUsd}`].filter(Boolean).join(", ");
+    const rows = [["event", "stage", "status", "cost", "duration", "message"],
+      ...events.map((r) => [r.kind, r.stage, r.status, formatCost(r.costUsd), formatDuration(r.durationMs), (r.message ?? "").slice(0, 80)])];
+    blocks.push([`${runId} — ${commit} — ${flags}`, table(rows)].join("\n"));
+  }
+  return blocks.join("\n\n");
+}
+
+/** `faktory compare`: cost · duration of each stage per site, then the totals (same figures as the phase documents' tables). */
+export function renderCompare(sites: { slug: string; totals: Record<StageName, StageTotal> }[]): string {
+  const cell = (t: StageTotal): string => (t.costUsd === undefined && t.durationMs === undefined ? "–" : `${formatCost(t.costUsd)} · ${formatDuration(t.durationMs)}`);
+  const rows = [["stage", ...sites.map((s) => s.slug)]];
+  for (const name of STAGES) rows.push([name, ...sites.map((s) => cell(s.totals[name]))]);
+  rows.push(["total", ...sites.map((s) => {
+    const cost = STAGES.reduce((n, st) => n + (s.totals[st].costUsd ?? 0), 0);
+    const ms = STAGES.reduce((n, st) => n + (s.totals[st].durationMs ?? 0), 0);
+    return cell({ costUsd: Math.round(cost * 100) / 100, durationMs: ms });
+  })]);
+  return table(rows);
 }
