@@ -50,6 +50,16 @@ describe("renderQaReport", () => {
     expect(md.indexOf("Rapport partiel")).toBeGreaterThan(md.indexOf("$1.23"));
     expect(md.indexOf("Rapport partiel")).toBeLessThan(md.indexOf("## /contact/"));
   });
+  it("adds the submitted forms row only on pages that carry a tested form", () => {
+    const r = report();
+    r.pages[0].check = { ...r.pages[0].check, formSubmissions: [
+      { formId: "contact", gfId: 2, url: r.pages[0].url, ok: false, error: "pas de confirmation (« Ce champ est obligatoire. »)", checkedAt: "2026-09-14T00:00:00.000Z" },
+    ] };
+    const md = renderQaReport(r, "X");
+    expect(md).toContain("| Formulaires soumis | 0/1 |");
+    expect(md).toContain("formulaire contact (#2) : pas de confirmation (« Ce champ est obligatoire. »)");
+    expect(md.match(/Formulaires soumis/g)).toHaveLength(1);
+  });
   it("writeQaReport writes both files", async () => {
     const config = loadConfig(mkdtempSync(join(tmpdir(), "fk-qareport-")));
     await initSite(config, { slug: "boul", briefPath: "fixtures/briefs/boulangerie.md" });

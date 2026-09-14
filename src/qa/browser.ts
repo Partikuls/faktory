@@ -138,6 +138,7 @@ export async function checkPage(
       url, status, consoleErrors, pageErrors, failedRequests, brokenLinks,
       brokenImages: audit.brokenImages, missingAlt: audit.missingAlt, unstyledBlocks: audit.unstyledBlocks, h1Count: audit.h1Count,
       untranslated: audit.untranslated,
+      formSubmissions: [],
       mobileOverflow, checkedAt: new Date().toISOString(),
     };
     return { check, tiles: { desktop, mobile } };

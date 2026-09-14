@@ -29,6 +29,17 @@ const issuesOf = (e: z.ZodError): string => e.issues.map((i) => `${i.path.join("
 
 // ---------- page check (spec « Contrôle d'une page ») ----------
 
+/** One real submission of a Gravity Forms form by the qa stage (spec B3). */
+export const FormSubmissionSchema = z.strictObject({
+  formId: z.string(),
+  gfId: z.number().int().positive(),
+  url: z.string().url(),
+  ok: z.boolean(),
+  error: z.string().optional(),
+  checkedAt: z.string(),
+});
+export type FormSubmission = z.infer<typeof FormSubmissionSchema>;
+
 export const PageCheckSchema = z.strictObject({
   url: z.string().url(),
   status: z.number().int(),
@@ -41,6 +52,7 @@ export const PageCheckSchema = z.strictObject({
   unstyledBlocks: z.array(z.string()),
   h1Count: z.number().int().min(0),
   untranslated: z.array(z.string()).default([]),
+  formSubmissions: z.array(FormSubmissionSchema).default([]),
   mobileOverflow: z.boolean(),
   checkedAt: z.string(),
 });
@@ -73,6 +85,7 @@ export function checkIssues(c: PageCheck): string[] {
   if (c.h1Count !== 1) out.push(`${c.h1Count} h1 (attendu : 1)`);
   if (c.mobileOverflow) out.push("débordement horizontal en mobile");
   if (c.untranslated.length) out.push(`textes anglais non traduits : ${c.untranslated.join(", ")}`);
+  for (const f of c.formSubmissions) if (!f.ok) out.push(`formulaire ${f.formId} (#${f.gfId}) : ${f.error ?? "échec"}`);
   return out;
 }
 

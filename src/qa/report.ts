@@ -32,6 +32,7 @@ function pageSection(p: QaPage): string {
     `| Blocs GenerateBlocks sans CSS | ${c.unstyledBlocks.length} |`,
     `| h1 | ${c.h1Count} |`,
     `| Textes non traduits | ${c.untranslated.length} |`,
+    ...(c.formSubmissions.length ? [`| Formulaires soumis | ${c.formSubmissions.filter((f) => f.ok).length}/${c.formSubmissions.length} |`] : []),
     `| Débordement mobile | ${yesNo(c.mobileOverflow)} |`,
     "",
   ];
