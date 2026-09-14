@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { loadConfig } from "../../src/config.js";
 import { initSite } from "../../src/workspace.js";
 import { runSite, destroySite, loadContext } from "../../src/pipeline.js";
-import { wpJson } from "../../src/wp.js";
+import { wpJson, wpOk } from "../../src/wp.js";
+import { decodeEntities } from "../../src/provision/pages.js";
 
 describe.skipIf(!process.env.FAKTORY_DOCKER)("provision stage (docker)", () => {
   const config = { ...loadConfig(resolve(".")), sitesRoot: mkdtempSync(join(tmpdir(), "faktory-sites-")), portBase: 8192 };
@@ -28,5 +29,18 @@ describe.skipIf(!process.env.FAKTORY_DOCKER)("provision stage (docker)", () => {
     expect(await res.text()).toContain('lang="fr-FR"');
     const s2 = await runSite(config, "itprov", { only: "provision" });
     expect(s2.stages.provision.message).toContain("already installed");
+  });
+
+  it("puts back a page title edited in WordPress to the spec's title", async () => {
+    const ctx = loadContext(config, "itprov");
+    const spec = JSON.parse(readFileSync("fixtures/specs/boulangerie.site-spec.json", "utf8"));
+    writeFileSync(join(ctx.siteDir, "site-spec.json"), JSON.stringify(spec));
+    const s1 = await runSite(config, "itprov", { only: "provision" });
+    expect(s1.stages.provision.status, s1.stages.provision.message).toBe("done");
+    const [page] = await wpJson<{ ID: number }[]>(ctx, ["post", "list", "--post_type=page", "--name=commandes-evenements", "--fields=ID"]);
+    await wpOk(ctx, ["post", "update", String(page.ID), "--post_title=Ancien titre"]);
+    const s2 = await runSite(config, "itprov", { only: "provision" });
+    expect(s2.stages.provision.status, s2.stages.provision.message).toBe("done");
+    expect(decodeEntities(await wpOk(ctx, ["post", "get", String(page.ID), "--field=post_title"]))).toBe("Commandes & événements");
   });
 });

@@ -5,14 +5,14 @@ import { createState } from "../../src/state.js";
 import type { SiteContext } from "../../src/docker.js";
 import { deps } from "../../src/wp.js";
 import { parseSiteSpec } from "../../src/schemas/site-spec.js";
-import { ensurePages, ensureMenus, GP_PAGE_META, PRIMARY_MENU } from "../../src/provision/pages.js";
+import { ensurePages, ensureMenus, decodeEntities, GP_PAGE_META, PRIMARY_MENU } from "../../src/provision/pages.js";
 
 const spec = parseSiteSpec(JSON.parse(readFileSync("fixtures/specs/boulangerie.site-spec.json", "utf8")));
 const ctx: SiteContext = { config: loadConfig("/tmp/fk"), slug: "demo", siteDir: "/tmp/fk/sites/demo", state: createState("demo", 8100, "pw") };
 const argsOf = (spy: any) => spy.mock.calls.map((c: any) => (c[2] as string[]).slice(1).join(" "));
 
 /** Fake WP: existing pages/menus/items; `post create` returns incrementing ids. */
-function fakeWp(state: { pages: { ID: number; post_name: string }[]; menus: { term_id: number; name: string }[]; items: { object_id: number }[] }) {
+function fakeWp(state: { pages: { ID: number; post_name: string; post_title?: string }[]; menus: { term_id: number; name: string }[]; items: { object_id: number }[] }) {
   let next = 100;
   return vi.spyOn(deps, "composeExec").mockImplementation(async (_c, _s, cmd) => {
     const a = cmd.slice(1).join(" ");
@@ -29,7 +29,7 @@ function fakeWp(state: { pages: { ID: number; post_name: string }[]; menus: { te
 describe("ensurePages", () => {
   beforeEach(() => vi.restoreAllMocks());
   it("creates missing pages as published placeholders with GP meta and returns slug → id", async () => {
-    const spy = fakeWp({ pages: [{ ID: 12, post_name: "accueil" }], menus: [], items: [] });
+    const spy = fakeWp({ pages: [{ ID: 12, post_name: "accueil", post_title: "Accueil" }], menus: [], items: [] });
     const ids = await ensurePages(ctx, spec);
     expect(ids.accueil).toBe(12);
     expect(ids["nos-produits"]).toBe(100);
@@ -46,6 +46,25 @@ describe("ensurePages", () => {
     expect(a).toContain("option update show_on_front page");
     expect(a).toContain(`option update page_on_front ${ids.accueil}`);
     expect(a).toContain(`option update page_for_posts ${ids.actualites}`);
+  });
+  it("reads titles and rewrites only the ones that differ from the spec, entities decoded", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const spy = fakeWp({ pages: [
+      { ID: 12, post_name: "accueil", post_title: "Accueil" },
+      { ID: 13, post_name: "commandes-evenements", post_title: "Commandes &amp; événements" },
+      { ID: 14, post_name: "la-maison", post_title: "Maison" },
+    ], menus: [], items: [] });
+    await ensurePages(ctx, spec);
+    const a = argsOf(spy);
+    expect(a[0]).toBe("post list --post_type=page --post_status=any --fields=ID,post_name,post_title --format=json");
+    expect(a.filter((x: string) => x.startsWith("post update"))).toEqual(["post update 14 --post_title=La maison"]);
+    expect(log).toHaveBeenCalledWith('  ↻ title /la-maison/: "Maison" → "La maison"');
+  });
+});
+
+describe("decodeEntities", () => {
+  it("decodes the entities WordPress writes into titles", () => {
+    expect(decodeEntities("A &amp; B &lt;C&gt; &quot;D&quot; &#039;E&#039; &#8217;")).toBe("A & B <C> \"D\" 'E' ’");
   });
 });
 

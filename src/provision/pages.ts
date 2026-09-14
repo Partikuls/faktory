@@ -10,16 +10,27 @@ export const GP_PAGE_META: [string, string][] = [
 ];
 export const PRIMARY_MENU = "Principal";
 
-type PageRow = { ID: number; post_name: string };
+type PageRow = { ID: number; post_name: string; post_title: string };
 
-/** Create every sitemap page as a published, empty placeholder (phase 3 fills them by slug). Returns slug → ID. */
+/** WordPress stores titles through kses (`&` → `&amp;`); compare what a visitor reads. */
+export function decodeEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_m, n: string) => String.fromCodePoint(Number(n)))
+    .replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+
+/** Create every sitemap page as a published, empty placeholder (phase 3 fills them by slug) and keep existing titles in line with the spec. Returns slug → ID. */
 export async function ensurePages(ctx: SiteContext, spec: SiteSpec): Promise<Record<string, number>> {
-  const existing = await wpJson<PageRow[]>(ctx, ["post", "list", "--post_type=page", "--post_status=any", "--fields=ID,post_name"]);
+  const existing = await wpJson<PageRow[]>(ctx, ["post", "list", "--post_type=page", "--post_status=any", "--fields=ID,post_name,post_title"]);
   const ids: Record<string, number> = {};
   for (const page of spec.sitemap) {
-    let id = existing.find((p) => p.post_name === page.slug)?.ID;
+    const row = existing.find((p) => p.post_name === page.slug);
+    let id = row?.ID;
     if (!id) {
       id = Number(await wpOk(ctx, ["post", "create", "--post_type=page", "--post_status=publish", `--post_title=${page.title}`, `--post_name=${page.slug}`, "--porcelain"]));
+    } else if (decodeEntities(row!.post_title ?? "") !== page.title) {
+      await wpOk(ctx, ["post", "update", String(id), `--post_title=${page.title}`]);
+      console.log(`  ↻ title /${page.slug}/: "${decodeEntities(row!.post_title ?? "")}" → "${page.title}"`);
     }
     for (const [k, v] of GP_PAGE_META) await wpOk(ctx, ["post", "meta", "update", String(id), k, v]);
     ids[page.slug] = id;
